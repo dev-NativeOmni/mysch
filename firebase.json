@@ -1,6 +1,21 @@
 {
   "hosting": [
     {
+      "target": "myschoolid",
+      "public": "out",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ]
+    },
+    {
       "target": "mysch-id",
       "public": "out",
       "ignore": [
