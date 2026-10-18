@@ -31,6 +31,7 @@ import {
   deleteStudent,
   saveInstitution,
   deleteInstitution,
+  saveActiveToken,
 } from "@/lib/storage";
 import {
   Building2,
@@ -138,11 +139,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // ================= MODAL HAPUS GURU =================
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
-  // ================= MODAL TAMBAH & HAPUS LEMBAGA =================
+  // ================= MODAL TAMBAH, EDIT & HAPUS LEMBAGA =================
   const [showAddInstModal, setShowAddInstModal] = useState(false);
+  const [editingInst, setEditingInst] = useState<Institution | null>(null);
   const [newInstName, setNewInstName] = useState("");
   const [newInstToken, setNewInstToken] = useState("");
-  const [newInstLevel, setNewInstLevel] = useState<"SD" | "SMP" | "SMA" | "SMK">("SMP");
+  const [newInstLevel, setNewInstLevel] = useState<"SD" | "SMP" | "SMA" | "SMK">("SMK");
   const [newInstNpsn, setNewInstNpsn] = useState("");
 
   const [instToDelete, setInstToDelete] = useState<Institution | null>(null);
@@ -468,19 +470,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   // ================= ACTIONS: LEMBAGA =================
+  const handleOpenAddInst = () => {
+    setEditingInst(null);
+    setNewInstName("");
+    setNewInstToken("");
+    setNewInstLevel("SMK");
+    setNewInstNpsn("");
+    setShowAddInstModal(true);
+  };
+
+  const handleOpenEditInst = (inst: Institution) => {
+    setEditingInst(inst);
+    setNewInstName(inst.name);
+    setNewInstToken(inst.token_lembaga);
+    setNewInstLevel(inst.education_level as any);
+    setNewInstNpsn(inst.npsn || "");
+    setShowAddInstModal(true);
+  };
+
   const handleSaveInstitution = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newInst: Institution = {
-      id: "inst-" + Date.now(),
-      token_lembaga: newInstToken.trim().toUpperCase(),
+    const cleanToken = newInstToken.trim().toUpperCase();
+    if (!cleanToken) {
+      alert("Token Lembaga tidak boleh kosong.");
+      return;
+    }
+
+    const instToSave: Institution = {
+      id: editingInst ? editingInst.id : "inst-" + Date.now(),
+      token_lembaga: cleanToken,
       name: newInstName.trim(),
       education_level: newInstLevel,
       npsn: newInstNpsn.trim() || undefined,
+      logo_url: editingInst?.logo_url || "⚙️",
       is_active: true,
-      created_at: new Date().toISOString(),
+      created_at: editingInst?.created_at || new Date().toISOString(),
     };
-    await saveInstitution(newInst);
+
+    await saveInstitution(instToSave);
     setShowAddInstModal(false);
+
+    // If edited institution is current active institution, sync it immediately
+    if (activeInstitution.id === instToSave.id) {
+      saveActiveToken(instToSave.token_lembaga);
+      onSwitchInstitution(instToSave);
+    }
+
     onRefreshInstitutions();
   };
 
@@ -537,9 +572,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
                 TOKEN LEMBAGA GURU:
               </p>
-              <p className="font-mono text-base font-black text-teal-900 tracking-wider">
-                {activeInstitution.token_lembaga}
-              </p>
+              <div className="flex items-center gap-1.5">
+                <p className="font-mono text-base font-black text-teal-900 tracking-wider">
+                  {activeInstitution.token_lembaga}
+                </p>
+                {user.role === "SUPER_ADMIN" && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditInst(activeInstitution)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-slate-200 transition cursor-pointer"
+                    title="Ubah Token Lembaga (Super Admin)"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-1.5">
               <button
@@ -1173,7 +1220,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </p>
             </div>
             <button
-              onClick={() => setShowAddInstModal(true)}
+              onClick={handleOpenAddInst}
               className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Daftarkan Lembaga Baru
@@ -1220,21 +1267,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                  <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100 flex-wrap">
                     {!isCurrent && (
                       <button
                         onClick={() => onSwitchInstitution(inst)}
-                        className="flex-1 py-1.5 px-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs transition cursor-pointer"
+                        className="py-1.5 px-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs transition cursor-pointer"
                       >
                         Beralih
                       </button>
                     )}
                     <button
+                      onClick={() => handleOpenEditInst(inst)}
+                      className="py-1.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs transition flex items-center gap-1 cursor-pointer"
+                      title="Edit Token & Informasi Lembaga"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" /> Edit Token
+                    </button>
+                    <button
                       onClick={() => {
                         navigator.clipboard.writeText(inst.token_lembaga);
                         alert(`Token ${inst.token_lembaga} berhasil disalin!`);
                       }}
-                      className="py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition"
+                      className="py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
                       title="Salin Token"
                     >
                       Salin
@@ -1244,7 +1298,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         setInstToDelete(inst);
                         setDeleteInstConfirmInput("");
                       }}
-                      className="py-1.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition flex items-center gap-1"
+                      className="py-1.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition flex items-center gap-1 cursor-pointer"
                       title="Hapus Lembaga Ini"
                     >
                       <Trash2 className="w-3.5 h-3.5" /> Hapus
@@ -1963,10 +2017,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">Tambah Lembaga Baru</h3>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {editingInst ? "Edit Lembaga & Token Akses" : "Daftarkan Lembaga Baru"}
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  {editingInst
+                    ? "Ubah Token Lembaga atau data identitas sekolah secara fleksibel."
+                    : "Tambahkan cabang sekolah baru di bawah naungan yayasan Anda."}
+                </p>
+              </div>
               <button
                 onClick={() => setShowAddInstModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center"
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer"
               >
                 ✕
               </button>
@@ -1977,7 +2040,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <label className="block font-bold text-slate-700 mb-1">Nama Lembaga / Sekolah</label>
                 <input
                   type="text"
-                  placeholder="Contoh: SMP Nusantara"
+                  placeholder="Contoh: SMK Pancasila 5 Wonogiri"
                   value={newInstName}
                   onChange={(e) => setNewInstName(e.target.value)}
                   className="w-full p-2.5 rounded-xl border border-slate-300 font-bold"
@@ -1986,15 +2049,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Token Lembaga (Kode Akses Guru)</label>
+                <label className="block font-bold text-slate-700 mb-1">Token Lembaga (Kode Akses Guru Masuk)</label>
                 <input
                   type="text"
-                  placeholder="Contoh: SMPNUSANTARA"
+                  placeholder="Contoh: SMKPAN5"
                   value={newInstToken}
                   onChange={(e) => setNewInstToken(e.target.value.toUpperCase())}
-                  className="w-full p-2.5 rounded-xl border border-slate-300 font-mono uppercase font-bold"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 font-mono uppercase font-black text-teal-900 text-sm tracking-wider"
                   required
                 />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Token ini dimasukkan guru saat login. Anda dapat mengubahnya kapan saja agar fleksibel menyesuaikan (misal: <strong>SMKPAN5</strong>, <strong>SMKPANCASILA5</strong>, dll).
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -2015,7 +2081,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <label className="block font-bold text-slate-700 mb-1">NPSN (Opsional)</label>
                   <input
                     type="text"
-                    placeholder="20108899"
+                    placeholder="20311283"
                     value={newInstNpsn}
                     onChange={(e) => setNewInstNpsn(e.target.value)}
                     className="w-full p-2.5 rounded-xl border border-slate-300 font-mono"
@@ -2023,19 +2089,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              <div className="pt-2 flex justify-end gap-2">
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowAddInstModal(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold"
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold"
+                  className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold cursor-pointer"
                 >
-                  Simpan Lembaga
+                  {editingInst ? "Simpan Perubahan Token" : "Daftarkan Lembaga"}
                 </button>
               </div>
             </form>
