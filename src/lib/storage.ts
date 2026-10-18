@@ -4,6 +4,7 @@ import {
   getDocs,
   doc,
   setDoc,
+  deleteDoc,
   query,
   where,
 } from "firebase/firestore";
@@ -65,7 +66,9 @@ function initLocalStorage() {
   }
 }
 
-// 1. LEMBAGA
+// ==========================================
+// 1. LEMBAGA (INSTITUTION) CRUD
+// ==========================================
 export async function getInstitutions(): Promise<Institution[]> {
   initLocalStorage();
   if (isFirebaseConfigured && db) {
@@ -107,7 +110,23 @@ export async function saveInstitution(inst: Institution): Promise<void> {
   localStorage.setItem(STORAGE_KEYS.INSTITUTIONS, JSON.stringify(list));
 }
 
-// 2. PENGGUNA
+export async function deleteInstitution(instId: string): Promise<void> {
+  initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      await deleteDoc(doc(db, "institutions", instId));
+    } catch (e) {
+      console.warn("Firestore delete error:", e);
+    }
+  }
+  const list = await getInstitutions();
+  const filtered = list.filter((i) => i.id !== instId);
+  localStorage.setItem(STORAGE_KEYS.INSTITUTIONS, JSON.stringify(filtered));
+}
+
+// ==========================================
+// 2. PENGGUNA (USERS / GURU / ADMIN) CRUD
+// ==========================================
 export async function getUsers(institutionId?: string): Promise<User[]> {
   initLocalStorage();
   if (isFirebaseConfigured && db) {
@@ -148,7 +167,33 @@ export async function saveUser(user: User): Promise<void> {
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(list));
 }
 
-// 3. JADWAL (SCHEDULES)
+export async function deleteUser(userId: string): Promise<void> {
+  initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      await deleteDoc(doc(db, "users", userId));
+    } catch (e) {
+      console.warn("Firestore delete user error:", e);
+    }
+  }
+  const list = await getUsers();
+  const filtered = list.filter((u) => u.id !== userId);
+  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(filtered));
+}
+
+export async function resetUserPin(userId: string, newPin: string): Promise<void> {
+  initLocalStorage();
+  const list = await getUsers();
+  const user = list.find((u) => u.id === userId);
+  if (user) {
+    user.pin = newPin;
+    await saveUser(user);
+  }
+}
+
+// ==========================================
+// 3. JADWAL (SCHEDULES) CRUD
+// ==========================================
 export async function getSchedules(institutionId: string, teacherId?: string): Promise<Schedule[]> {
   initLocalStorage();
   if (isFirebaseConfigured && db) {
@@ -191,7 +236,24 @@ export async function saveSchedule(schedule: Schedule): Promise<void> {
   localStorage.setItem(STORAGE_KEYS.SCHEDULES, JSON.stringify(all));
 }
 
-// 4. JURNAL MENGAJAR (JOURNALS)
+export async function deleteSchedule(scheduleId: string): Promise<void> {
+  initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      await deleteDoc(doc(db, "schedules", scheduleId));
+    } catch (e) {
+      console.warn("Firestore delete schedule error:", e);
+    }
+  }
+  const raw = localStorage.getItem(STORAGE_KEYS.SCHEDULES);
+  const all: Schedule[] = raw ? JSON.parse(raw) : INITIAL_SCHEDULES;
+  const filtered = all.filter((s) => s.id !== scheduleId);
+  localStorage.setItem(STORAGE_KEYS.SCHEDULES, JSON.stringify(filtered));
+}
+
+// ==========================================
+// 4. JURNAL MENGAJAR (JOURNALS) CRUD
+// ==========================================
 export async function getJournals(institutionId: string, teacherId?: string): Promise<JournalEntry[]> {
   initLocalStorage();
   if (isFirebaseConfigured && db) {
@@ -234,29 +296,195 @@ export async function saveJournal(entry: JournalEntry): Promise<void> {
   localStorage.setItem(STORAGE_KEYS.JOURNALS, JSON.stringify(all));
 }
 
-// 5. KELAS, MAPEL, DAN SISWA
+// ==========================================
+// 5. KELAS & ROMBEL (CLASSES) CRUD
+// ==========================================
 export async function getClasses(institutionId: string): Promise<ClassRoom[]> {
   initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      const snap = await getDocs(collection(db, "classes"));
+      if (!snap.empty) {
+        const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ClassRoom));
+        return all.filter((c) => c.institution_id === institutionId);
+      }
+    } catch (e) {
+      console.warn("Firestore fallback classes:", e);
+    }
+  }
   const raw = localStorage.getItem(STORAGE_KEYS.CLASSES);
   const all: ClassRoom[] = raw ? JSON.parse(raw) : INITIAL_CLASSES;
   return all.filter((c) => c.institution_id === institutionId);
 }
 
+export async function saveClass(cls: ClassRoom): Promise<void> {
+  initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      await setDoc(doc(db, "classes", cls.id), cls);
+    } catch (e) {
+      console.warn("Firestore save class error:", e);
+    }
+  }
+  const raw = localStorage.getItem(STORAGE_KEYS.CLASSES);
+  const all: ClassRoom[] = raw ? JSON.parse(raw) : INITIAL_CLASSES;
+  const idx = all.findIndex((c) => c.id === cls.id);
+  if (idx >= 0) {
+    all[idx] = cls;
+  } else {
+    all.push(cls);
+  }
+  localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(all));
+}
+
+export async function deleteClass(classId: string): Promise<void> {
+  initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      await deleteDoc(doc(db, "classes", classId));
+    } catch (e) {
+      console.warn("Firestore delete class error:", e);
+    }
+  }
+  const raw = localStorage.getItem(STORAGE_KEYS.CLASSES);
+  const all: ClassRoom[] = raw ? JSON.parse(raw) : INITIAL_CLASSES;
+  const filtered = all.filter((c) => c.id !== classId);
+  localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(filtered));
+}
+
+// ==========================================
+// 6. MATA PELAJARAN (SUBJECTS) CRUD
+// ==========================================
 export async function getSubjects(institutionId: string): Promise<Subject[]> {
   initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      const snap = await getDocs(collection(db, "subjects"));
+      if (!snap.empty) {
+        const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Subject));
+        return all.filter((s) => s.institution_id === institutionId);
+      }
+    } catch (e) {
+      console.warn("Firestore fallback subjects:", e);
+    }
+  }
   const raw = localStorage.getItem(STORAGE_KEYS.SUBJECTS);
   const all: Subject[] = raw ? JSON.parse(raw) : INITIAL_SUBJECTS;
   return all.filter((s) => s.institution_id === institutionId);
 }
 
+export async function saveSubject(sub: Subject): Promise<void> {
+  initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      await setDoc(doc(db, "subjects", sub.id), sub);
+    } catch (e) {
+      console.warn("Firestore save subject error:", e);
+    }
+  }
+  const raw = localStorage.getItem(STORAGE_KEYS.SUBJECTS);
+  const all: Subject[] = raw ? JSON.parse(raw) : INITIAL_SUBJECTS;
+  const idx = all.findIndex((s) => s.id === sub.id);
+  if (idx >= 0) {
+    all[idx] = sub;
+  } else {
+    all.push(sub);
+  }
+  localStorage.setItem(STORAGE_KEYS.SUBJECTS, JSON.stringify(all));
+}
+
+export async function deleteSubject(subjectId: string): Promise<void> {
+  initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      await deleteDoc(doc(db, "subjects", subjectId));
+    } catch (e) {
+      console.warn("Firestore delete subject error:", e);
+    }
+  }
+  const raw = localStorage.getItem(STORAGE_KEYS.SUBJECTS);
+  const all: Subject[] = raw ? JSON.parse(raw) : INITIAL_SUBJECTS;
+  const filtered = all.filter((s) => s.id !== subjectId);
+  localStorage.setItem(STORAGE_KEYS.SUBJECTS, JSON.stringify(filtered));
+}
+
+// ==========================================
+// 7. SISWA (STUDENTS) CRUD
+// ==========================================
+export async function getAllStudents(institutionId: string): Promise<Student[]> {
+  initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      const snap = await getDocs(collection(db, "students"));
+      if (!snap.empty) {
+        const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Student));
+        return all.filter((s) => s.institution_id === institutionId);
+      }
+    } catch (e) {
+      console.warn("Firestore fallback students:", e);
+    }
+  }
+  const raw = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+  const all: Student[] = raw ? JSON.parse(raw) : INITIAL_STUDENTS_8A;
+  return all.filter((s) => s.institution_id === institutionId);
+}
+
 export async function getStudentsByClass(classId: string): Promise<Student[]> {
   initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      const snap = await getDocs(collection(db, "students"));
+      if (!snap.empty) {
+        const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Student));
+        return all.filter((s) => s.class_id === classId && s.is_active);
+      }
+    } catch (e) {
+      console.warn("Firestore fallback students by class:", e);
+    }
+  }
   const raw = localStorage.getItem(STORAGE_KEYS.STUDENTS);
   const all: Student[] = raw ? JSON.parse(raw) : INITIAL_STUDENTS_8A;
   return all.filter((s) => s.class_id === classId && s.is_active);
 }
 
-// 6. TOKEN AKTIF & SESI LOKAL
+export async function saveStudent(student: Student): Promise<void> {
+  initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      await setDoc(doc(db, "students", student.id), student);
+    } catch (e) {
+      console.warn("Firestore save student error:", e);
+    }
+  }
+  const raw = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+  const all: Student[] = raw ? JSON.parse(raw) : INITIAL_STUDENTS_8A;
+  const idx = all.findIndex((s) => s.id === student.id);
+  if (idx >= 0) {
+    all[idx] = student;
+  } else {
+    all.push(student);
+  }
+  localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(all));
+}
+
+export async function deleteStudent(studentId: string): Promise<void> {
+  initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      await deleteDoc(doc(db, "students", studentId));
+    } catch (e) {
+      console.warn("Firestore delete student error:", e);
+    }
+  }
+  const raw = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+  const all: Student[] = raw ? JSON.parse(raw) : INITIAL_STUDENTS_8A;
+  const filtered = all.filter((s) => s.id !== studentId);
+  localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(filtered));
+}
+
+// ==========================================
+// 8. TOKEN AKTIF & SESI LOKAL
+// ==========================================
 export function getSavedToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(STORAGE_KEYS.ACTIVE_TOKEN);

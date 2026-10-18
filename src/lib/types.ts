@@ -24,7 +24,8 @@ export interface User {
   pin: string; // 6 digits
   role: UserRole;
   avatar_url?: string;
-  subject_name?: string;
+  subject_name?: string; // fallback / legacy string
+  subject_ids?: string[]; // Array ID mata pelajaran yang diampu (bisa > 1)
   is_active: boolean;
 }
 
