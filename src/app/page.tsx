@@ -119,21 +119,31 @@ export default function Home() {
 
       {/* Management Floating Switcher to Preview Teacher View */}
       {isManagement && (
-        <div className="bg-amber-100 border-b border-amber-200 px-4 py-2 text-xs flex items-center justify-between">
-          <span className="font-semibold text-amber-900">
+        <div className={`border-b px-4 py-2 text-xs flex items-center justify-between ${
+          currentUser.role === "HEADMASTER"
+            ? "bg-purple-100 border-purple-200"
+            : "bg-amber-100 border-amber-200"
+        }`}>
+          <span className={`font-semibold ${
+            currentUser.role === "HEADMASTER" ? "text-purple-950" : "text-amber-900"
+          }`}>
             Anda login sebagai{" "}
             <strong>
               {currentUser.role === "SUPER_ADMIN"
                 ? "Super Admin"
                 : currentUser.role === "HEADMASTER"
-                ? "Kepala Sekolah (Supervisi)"
+                ? "Kepala Sekolah (Mode Supervisi)"
                 : "Admin Kurikulum"}
             </strong>{" "}
             ({currentUser.name})
           </span>
           <button
             onClick={() => setAdminViewMode(adminViewMode === "admin" ? "teacher" : "admin")}
-            className="px-3 py-1 rounded-lg bg-amber-800 text-white font-bold hover:bg-amber-900 transition flex items-center gap-1.5 cursor-pointer text-[11px]"
+            className={`px-3 py-1 rounded-lg text-white font-bold transition flex items-center gap-1.5 cursor-pointer text-[11px] ${
+              currentUser.role === "HEADMASTER"
+                ? "bg-purple-800 hover:bg-purple-900"
+                : "bg-amber-800 hover:bg-amber-900"
+            }`}
           >
             <ArrowLeftRight className="w-3.5 h-3.5" />
             <span>

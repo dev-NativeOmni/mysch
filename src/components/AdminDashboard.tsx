@@ -89,6 +89,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const isSuperAdmin = user.role === "SUPER_ADMIN";
   const isHeadmaster = user.role === "HEADMASTER";
+  const canManage = !isHeadmaster; // Kepala Sekolah bersifat View-Only (tidak bisa CRUD)
   const [activeTab, setActiveTab] = useState<AdminTab>(isHeadmaster ? "monitor" : "jadwal");
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -269,6 +270,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManage) return;
     const warning = checkConflict(newSchTeacherId, newSchDay, newSchStartPeriod, newSchEndPeriod);
     if (warning) {
       setConflictWarning(warning);
@@ -296,6 +298,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteSchedule = async (schId: string) => {
+    if (!canManage) return;
     if (window.confirm("Hapus jadwal ini dari matriks?")) {
       await deleteSchedule(schId);
       loadData();
@@ -304,6 +307,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // ================= ACTIONS: KELAS =================
   const handleOpenAddClass = () => {
+    if (!canManage) return;
     setEditingClass(null);
     setClassName("");
     setClassGrade(activeInstitution.education_level === "SD" ? 1 : activeInstitution.education_level === "SMA" || activeInstitution.education_level === "SMK" ? 10 : 7);
@@ -313,6 +317,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleOpenEditClass = (cls: ClassRoom) => {
+    if (!canManage) return;
     setEditingClass(cls);
     setClassName(cls.name);
     setClassGrade(cls.grade_level);
@@ -323,6 +328,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveClass = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManage) return;
     const cls: ClassRoom = {
       id: editingClass ? editingClass.id : "cls-" + Date.now(),
       institution_id: activeInstitution.id,
@@ -337,6 +343,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteClass = async (cls: ClassRoom) => {
+    if (!canManage) return;
     if (window.confirm(`Yakin ingin menghapus kelas ${cls.name}? Seluruh jadwal yang menggunakan kelas ini perlu disesuaikan.`)) {
       await deleteClass(cls.id);
       loadData();
@@ -355,7 +362,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClassForStudents || !newStudentName.trim()) return;
+    if (!canManage || !selectedClassForStudents || !newStudentName.trim()) return;
 
     const std: Student = {
       id: "std-" + Date.now(),
@@ -376,7 +383,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteStudent = async (stdId: string) => {
-    if (!selectedClassForStudents) return;
+    if (!canManage || !selectedClassForStudents) return;
     await deleteStudent(stdId);
     const updated = await getStudentsByClass(selectedClassForStudents.id);
     setClassStudents(updated);
@@ -385,6 +392,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // ================= ACTIONS: MAPEL =================
   const handleOpenAddSubject = () => {
+    if (!canManage) return;
     setEditingSubject(null);
     setSubjectCode("");
     setSubjectName("");
@@ -393,6 +401,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleOpenEditSubject = (sub: Subject) => {
+    if (!canManage) return;
     setEditingSubject(sub);
     setSubjectCode(sub.code);
     setSubjectName(sub.name);
@@ -402,6 +411,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveSubject = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManage) return;
     const sub: Subject = {
       id: editingSubject ? editingSubject.id : "sub-" + Date.now(),
       institution_id: activeInstitution.id,
@@ -415,6 +425,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteSubject = async (sub: Subject) => {
+    if (!canManage) return;
     if (window.confirm(`Yakin ingin menghapus mata pelajaran ${sub.name} (${sub.code})?`)) {
       await deleteSubject(sub.id);
       loadData();
@@ -423,6 +434,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // ================= ACTIONS: GURU (MULTI-MAPEL & RESET PIN) =================
   const handleOpenAddTeacher = () => {
+    if (!canManage) return;
     setEditingTeacher(null);
     setTeacherName("");
     setTeacherNip("");
@@ -434,6 +446,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleOpenEditTeacher = (t: User) => {
+    if (!canManage) return;
     setEditingTeacher(t);
     setTeacherName(t.name);
     setTeacherNip(t.nip);
@@ -445,6 +458,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const toggleSubjectForTeacher = (subId: string) => {
+    if (!canManage) return;
     setTeacherSelectedSubjectIds((prev) =>
       prev.includes(subId) ? prev.filter((id) => id !== subId) : [...prev, subId]
     );
@@ -452,6 +466,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManage) return;
     // Generate text summary for subjects
     const chosenNames = subjects
       .filter((s) => teacherSelectedSubjectIds.includes(s.id))
@@ -478,6 +493,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleOpenResetPin = (t: User) => {
+    if (!canManage) return;
     setTargetUserForReset(t);
     setNewPinValue("123456");
     setResetSuccessMsg("");
@@ -486,7 +502,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleExecuteResetPin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!targetUserForReset) return;
+    if (!canManage || !targetUserForReset) return;
     await resetUserPin(targetUserForReset.id, newPinValue.trim());
     setResetSuccessMsg(`PIN akun ${targetUserForReset.name} berhasil diubah ke: ${newPinValue.trim()}`);
     loadData();
@@ -499,7 +515,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteUser = async () => {
-    if (!userToDelete) return;
+    if (!canManage || !userToDelete) return;
     await deleteUser(userToDelete.id);
     setUserToDelete(null);
     loadData();
@@ -600,6 +616,16 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
     const rawPhone = teacher?.phone ? teacher.phone.replace(/[^0-9]/g, "") : "";
     const cleanPhone = rawPhone.startsWith("0") ? "62" + rawPhone.slice(1) : rawPhone;
 
+    const url = cleanPhone
+      ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank");
+  };
+
+  const handleContactTeacherWA = (t: User) => {
+    const rawPhone = t.phone ? t.phone.replace(/[^0-9]/g, "") : "";
+    const cleanPhone = rawPhone.startsWith("0") ? "62" + rawPhone.slice(1) : rawPhone;
+    const msg = `Halo ${t.name}, saya ${user.name} (${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"}).`;
     const url = cleanPhone
       ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`
       : `https://wa.me/?text=${encodeURIComponent(msg)}`;
@@ -743,9 +769,16 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
                   NPSN: {activeInstitution.npsn || "20108891"}
                 </span>
+                {isHeadmaster && (
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 flex items-center gap-1 border border-purple-200">
+                    <Award className="w-3.5 h-3.5 text-purple-700" /> Mode Supervisi (View Only)
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Panel Administrasi & Manajemen Akademik Lengkap • My School ID
+                {isHeadmaster
+                  ? "Panel Supervisi Kepala Sekolah • Pemantauan KBM, Jurnal & Pengingat WA • My School ID"
+                  : "Panel Administrasi & Manajemen Akademik Lengkap • My School ID"}
               </p>
             </div>
           </div>
@@ -842,7 +875,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
               : "text-slate-600 hover:bg-slate-100"
           }`}
         >
-          <GraduationCap className="w-4 h-4" /> Kelola Kelas ({classes.length})
+          <GraduationCap className="w-4 h-4" /> {isHeadmaster ? "Daftar Kelas" : "Kelola Kelas"} ({classes.length})
         </button>
 
         <button
@@ -907,15 +940,17 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                 Dilengkapi mesin pencegah bentrok guru otomatis.
               </p>
             </div>
-            <button
-              onClick={() => {
-                setConflictWarning("");
-                setShowAddScheduleModal(true);
-              }}
-              className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto"
-            >
-              <Plus className="w-4 h-4" /> Tambah Slot Jadwal
-            </button>
+            {canManage && (
+              <button
+                onClick={() => {
+                  setConflictWarning("");
+                  setShowAddScheduleModal(true);
+                }}
+                className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto"
+              >
+                <Plus className="w-4 h-4" /> Tambah Slot Jadwal
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
@@ -959,13 +994,15 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                                   <span className="text-[10px] font-mono text-slate-500">
                                     {sch.start_time}-{sch.end_time}
                                   </span>
-                                  <button
-                                    onClick={() => handleDeleteSchedule(sch.id)}
-                                    className="opacity-0 group-hover:opacity-100 p-1 text-rose-500 hover:bg-rose-50 rounded transition"
-                                    title="Hapus Jadwal"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
+                                  {canManage && (
+                                    <button
+                                      onClick={() => handleDeleteSchedule(sch.id)}
+                                      className="opacity-0 group-hover:opacity-100 p-1 text-rose-500 hover:bg-rose-50 rounded transition"
+                                      title="Hapus Jadwal"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                               <p className="font-bold text-xs text-slate-900 leading-tight">
@@ -1001,12 +1038,14 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                 Kelola daftar kelas, tingkat, wali kelas, serta daftar nama siswa per rombel.
               </p>
             </div>
-            <button
-              onClick={handleOpenAddClass}
-              className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto"
-            >
-              <Plus className="w-4 h-4" /> Tambah Kelas Baru
-            </button>
+            {canManage && (
+              <button
+                onClick={handleOpenAddClass}
+                className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto"
+              >
+                <Plus className="w-4 h-4" /> Tambah Kelas Baru
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1032,22 +1071,24 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                         Tahun Ajaran: {cls.academic_year}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleOpenEditClass(cls)}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-teal-700 hover:bg-slate-100"
-                        title="Edit Kelas"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClass(cls)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                        title="Hapus Kelas"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    {canManage && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleOpenEditClass(cls)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-teal-700 hover:bg-slate-100"
+                          title="Edit Kelas"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClass(cls)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                          title="Hapus Kelas"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs space-y-1">
@@ -1073,7 +1114,8 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                     onClick={() => handleOpenStudentsModal(cls)}
                     className="w-full py-2 px-3 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs flex items-center justify-center gap-1.5 border border-teal-200 transition cursor-pointer"
                   >
-                    <Users className="w-3.5 h-3.5" /> Kelola Daftar Siswa ({count})
+                    <Users className="w-3.5 h-3.5" />
+                    <span>{canManage ? "Kelola Daftar Siswa" : "Lihat Daftar Siswa"} ({count})</span>
                   </button>
                 </div>
               );
@@ -1094,12 +1136,14 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                 Atur kode, nama mata pelajaran, dan lihat guru yang mengampunya. Tiap guru bisa mengampu lebih dari 1 mata pelajaran.
               </p>
             </div>
-            <button
-              onClick={handleOpenAddSubject}
-              className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto"
-            >
-              <Plus className="w-4 h-4" /> Tambah Mata Pelajaran
-            </button>
+            {canManage && (
+              <button
+                onClick={handleOpenAddSubject}
+                className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto"
+              >
+                <Plus className="w-4 h-4" /> Tambah Mata Pelajaran
+              </button>
+            )}
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
@@ -1111,7 +1155,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                     <th className="py-3 px-4">Nama Mata Pelajaran</th>
                     <th className="py-3 px-4">Kategori</th>
                     <th className="py-3 px-4">Guru Pengampu Terdaftar</th>
-                    <th className="py-3 px-4 text-right">Aksi</th>
+                    {canManage && <th className="py-3 px-4 text-right">Aksi</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1163,24 +1207,26 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                             </span>
                           )}
                         </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => handleOpenEditSubject(sub)}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-teal-700 hover:bg-slate-100"
-                              title="Edit Mapel"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteSubject(sub)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                              title="Hapus Mapel"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
+                        {canManage && (
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => handleOpenEditSubject(sub)}
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-teal-700 hover:bg-slate-100"
+                                title="Edit Mapel"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSubject(sub)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                                title="Hapus Mapel"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -1197,18 +1243,22 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-bold text-slate-900">
-                Data Guru, Multi-Mata Pelajaran & Manajemen Akun
+                {isHeadmaster ? "Direktori Guru & Kontak Pembimbing" : "Data Guru, Multi-Mata Pelajaran & Manajemen Akun"}
               </h2>
               <p className="text-xs text-slate-500">
-                Guru dapat mengampu lebih dari 1 mata pelajaran. Kelola PIN/password lupa akun, dan profil guru.
+                {isHeadmaster
+                  ? "Daftar guru pengampu mata pelajaran dan kontak WhatsApp untuk koordinasi dan supervisi pembelajaran."
+                  : "Guru dapat mengampu lebih dari 1 mata pelajaran. Kelola PIN/password lupa akun, dan profil guru."}
               </p>
             </div>
-            <button
-              onClick={handleOpenAddTeacher}
-              className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto"
-            >
-              <Plus className="w-4 h-4" /> Daftarkan Guru Baru
-            </button>
+            {canManage && (
+              <button
+                onClick={handleOpenAddTeacher}
+                className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto"
+              >
+                <Plus className="w-4 h-4" /> Daftarkan Guru Baru
+              </button>
+            )}
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
@@ -1221,7 +1271,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                     <th className="py-3 px-4">Mata Pelajaran yang Diampu</th>
                     <th className="py-3 px-4">Beban Jam</th>
                     <th className="py-3 px-4">Status & PIN</th>
-                    <th className="py-3 px-4 text-right">Aksi Akun</th>
+                    <th className="py-3 px-4 text-right">{canManage ? "Aksi Akun" : "Hubungi Guru"}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1273,29 +1323,43 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => handleOpenResetPin(t)}
-                              className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[11px] font-bold flex items-center gap-1 transition"
-                              title="Reset Password / PIN Guru"
-                            >
-                              <Key className="w-3 h-3" /> Reset PIN
-                            </button>
-                            <button
-                              onClick={() => handleOpenEditTeacher(t)}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-teal-700 hover:bg-slate-100"
-                              title="Edit Profil & Mapel Guru"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => setUserToDelete(t)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                              title="Hapus Akun Guru"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                          {canManage ? (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleOpenResetPin(t)}
+                                className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[11px] font-bold flex items-center gap-1 transition"
+                                title="Reset Password / PIN Guru"
+                              >
+                                <Key className="w-3 h-3" /> Reset PIN
+                              </button>
+                              <button
+                                onClick={() => handleOpenEditTeacher(t)}
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-teal-700 hover:bg-slate-100"
+                                title="Edit Profil & Mapel Guru"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => setUserToDelete(t)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                                title="Hapus Akun Guru"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-end">
+                              <button
+                                type="button"
+                                onClick={() => handleContactTeacherWA(t)}
+                                className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                                title={`Hubungi ${t.name} via WhatsApp`}
+                              >
+                                <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Hubungi WA</span>
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
@@ -2144,47 +2208,54 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
               </button>
             </div>
 
-            {/* Form Tambah Siswa Baru */}
-            <form onSubmit={handleAddStudent} className="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex flex-wrap gap-2 items-end text-xs">
-              <div className="flex-1 min-w-[140px]">
-                <label className="block font-bold text-slate-700 mb-1">Nama Lengkap Siswa</label>
-                <input
-                  type="text"
-                  placeholder="Contoh: Ahmad Maulana"
-                  value={newStudentName}
-                  onChange={(e) => setNewStudentName(e.target.value)}
-                  className="w-full p-2 rounded-xl border border-slate-300 bg-white"
-                  required
-                />
-              </div>
-              <div className="w-32">
-                <label className="block font-bold text-slate-700 mb-1">NISN (Opsional)</label>
-                <input
-                  type="text"
-                  placeholder="0081234567"
-                  value={newStudentNisn}
-                  onChange={(e) => setNewStudentNisn(e.target.value)}
-                  className="w-full p-2 rounded-xl border border-slate-300 bg-white font-mono"
-                />
-              </div>
-              <div className="w-24">
-                <label className="block font-bold text-slate-700 mb-1">Gender</label>
-                <select
-                  value={newStudentGender}
-                  onChange={(e) => setNewStudentGender(e.target.value as any)}
-                  className="w-full p-2 rounded-xl border border-slate-300 bg-white"
+            {/* Form Tambah Siswa Baru (Hanya untuk Admin / Super Admin) */}
+            {canManage ? (
+              <form onSubmit={handleAddStudent} className="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex flex-wrap gap-2 items-end text-xs">
+                <div className="flex-1 min-w-[140px]">
+                  <label className="block font-bold text-slate-700 mb-1">Nama Lengkap Siswa</label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: Ahmad Maulana"
+                    value={newStudentName}
+                    onChange={(e) => setNewStudentName(e.target.value)}
+                    className="w-full p-2 rounded-xl border border-slate-300 bg-white"
+                    required
+                  />
+                </div>
+                <div className="w-32">
+                  <label className="block font-bold text-slate-700 mb-1">NISN (Opsional)</label>
+                  <input
+                    type="text"
+                    placeholder="0081234567"
+                    value={newStudentNisn}
+                    onChange={(e) => setNewStudentNisn(e.target.value)}
+                    className="w-full p-2 rounded-xl border border-slate-300 bg-white font-mono"
+                  />
+                </div>
+                <div className="w-24">
+                  <label className="block font-bold text-slate-700 mb-1">Gender</label>
+                  <select
+                    value={newStudentGender}
+                    onChange={(e) => setNewStudentGender(e.target.value as any)}
+                    className="w-full p-2 rounded-xl border border-slate-300 bg-white"
+                  >
+                    <option value="L">Laki-laki</option>
+                    <option value="P">Perempuan</option>
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold flex items-center gap-1 cursor-pointer"
                 >
-                  <option value="L">Laki-laki</option>
-                  <option value="P">Perempuan</option>
-                </select>
+                  <Plus className="w-3.5 h-3.5" /> Tambah
+                </button>
+              </form>
+            ) : (
+              <div className="bg-purple-50 border border-purple-200 text-purple-900 text-xs px-3.5 py-2.5 rounded-2xl flex items-center gap-2">
+                <Award className="w-4 h-4 shrink-0 text-purple-600" />
+                <span>Mode Supervisi: Kepala Sekolah dapat memantau data seluruh siswa secara view-only.</span>
               </div>
-              <button
-                type="submit"
-                className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold flex items-center gap-1 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" /> Tambah
-              </button>
-            </form>
+            )}
 
             {/* Tabel Siswa */}
             <div className="flex-1 overflow-y-auto border border-slate-200 rounded-2xl">
@@ -2195,7 +2266,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                     <th className="py-2.5 px-3">NISN</th>
                     <th className="py-2.5 px-3">Nama Lengkap</th>
                     <th className="py-2.5 px-3">L/P</th>
-                    <th className="py-2.5 px-3 text-right">Aksi</th>
+                    {canManage && <th className="py-2.5 px-3 text-right">Aksi</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -2213,21 +2284,25 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                           {s.gender === "L" ? "L" : "P"}
                         </span>
                       </td>
-                      <td className="py-2 px-3 text-right">
-                        <button
-                          onClick={() => handleDeleteStudent(s.id)}
-                          className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                          title="Hapus Siswa"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
+                      {canManage && (
+                        <td className="py-2 px-3 text-right">
+                          <button
+                            onClick={() => handleDeleteStudent(s.id)}
+                            className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                            title="Hapus Siswa"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                   {classStudents.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-400 italic">
-                        Belum ada siswa di kelas ini. Tambahkan siswa pertama di atas!
+                      <td colSpan={canManage ? 5 : 4} className="py-8 text-center text-slate-400 italic">
+                        {canManage
+                          ? "Belum ada siswa di kelas ini. Tambahkan siswa pertama di atas!"
+                          : "Belum ada siswa terdaftar di rombel kelas ini."}
                       </td>
                     </tr>
                   )}
