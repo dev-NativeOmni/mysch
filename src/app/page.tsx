@@ -100,7 +100,10 @@ export default function Home() {
     );
   }
 
-  const isAdminOrSuper = currentUser.role === "ADMIN" || currentUser.role === "SUPER_ADMIN";
+  const isManagement =
+    currentUser.role === "ADMIN" ||
+    currentUser.role === "SUPER_ADMIN" ||
+    currentUser.role === "HEADMASTER";
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -114,25 +117,39 @@ export default function Home() {
         onUserUpdated={handleUserUpdated}
       />
 
-      {/* Admin Floating Switcher to Preview Teacher View */}
-      {isAdminOrSuper && (
+      {/* Management Floating Switcher to Preview Teacher View */}
+      {isManagement && (
         <div className="bg-amber-100 border-b border-amber-200 px-4 py-2 text-xs flex items-center justify-between">
           <span className="font-semibold text-amber-900">
-            Anda login sebagai <strong>{currentUser.role === "SUPER_ADMIN" ? "Super Admin" : "Admin"}</strong> ({currentUser.name})
+            Anda login sebagai{" "}
+            <strong>
+              {currentUser.role === "SUPER_ADMIN"
+                ? "Super Admin"
+                : currentUser.role === "HEADMASTER"
+                ? "Kepala Sekolah (Supervisi)"
+                : "Admin Kurikulum"}
+            </strong>{" "}
+            ({currentUser.name})
           </span>
           <button
             onClick={() => setAdminViewMode(adminViewMode === "admin" ? "teacher" : "admin")}
             className="px-3 py-1 rounded-lg bg-amber-800 text-white font-bold hover:bg-amber-900 transition flex items-center gap-1.5 cursor-pointer text-[11px]"
           >
             <ArrowLeftRight className="w-3.5 h-3.5" />
-            <span>{adminViewMode === "admin" ? "Coba Tampilan Guru" : "Kembali ke Panel Admin"}</span>
+            <span>
+              {adminViewMode === "admin"
+                ? "Coba Tampilan Guru"
+                : currentUser.role === "HEADMASTER"
+                ? "Kembali ke Panel Supervisi"
+                : "Kembali ke Panel Admin"}
+            </span>
           </button>
         </div>
       )}
 
       {/* Main Content View */}
       <main className="flex-1 pb-12">
-        {isAdminOrSuper && adminViewMode === "admin" ? (
+        {isManagement && adminViewMode === "admin" ? (
           <AdminDashboard
             user={currentUser}
             activeInstitution={activeInstitution}

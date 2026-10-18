@@ -60,6 +60,13 @@ import {
   Check,
   Camera,
   Upload,
+  Award,
+  MessageCircle,
+  FileText,
+  Send,
+  Filter,
+  Phone,
+  CheckCheck,
 } from "lucide-react";
 import { compressImage } from "@/lib/imageUtils";
 
@@ -81,7 +88,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onSwitchInstitution,
 }) => {
   const isSuperAdmin = user.role === "SUPER_ADMIN";
-  const [activeTab, setActiveTab] = useState<AdminTab>("jadwal");
+  const isHeadmaster = user.role === "HEADMASTER";
+  const [activeTab, setActiveTab] = useState<AdminTab>(isHeadmaster ? "monitor" : "jadwal");
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [teachers, setTeachers] = useState<User[]>([]);
@@ -89,6 +97,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [journals, setJournals] = useState<JournalEntry[]>([]);
   const [allStudents, setAllStudents] = useState<Student[]>([]);
+
+  // ================= STATE MONITORING & SUPERVISI =================
+  const getTodayIndoDay = (): "Senin" | "Selasa" | "Rabu" | "Kamis" | "Jumat" => {
+    const d = new Date().getDay();
+    const map: Record<number, "Senin" | "Selasa" | "Rabu" | "Kamis" | "Jumat"> = {
+      1: "Senin",
+      2: "Selasa",
+      3: "Rabu",
+      4: "Kamis",
+      5: "Jumat",
+    };
+    return map[d] || "Senin";
+  };
+
+  const [monitorDay, setMonitorDay] = useState<string>(getTodayIndoDay());
+  const [monitorStatusFilter, setMonitorStatusFilter] = useState<"semua" | "belum" | "sudah">("semua");
+  const [monitorClassFilter, setMonitorClassFilter] = useState<string>("semua");
+  const [monitorSearchQuery, setMonitorSearchQuery] = useState<string>("");
+  const [inspectingJournal, setInspectingJournal] = useState<{
+    journal: JournalEntry;
+    schedule: Schedule;
+  } | null>(null);
+  const [broadcastCopied, setBroadcastCopied] = useState(false);
 
   // ================= MODAL JADWAL =================
   const [showAddScheduleModal, setShowAddScheduleModal] = useState(false);
@@ -474,6 +505,107 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     loadData();
   };
 
+  // ================= PENGINGAT & SUPERVISI WHATSAPP =================
+  const handleSendReminderWA = (sch: Schedule) => {
+    const teacher = teachers.find((t) => t.id === sch.teacher_id);
+    const tName = teacher?.name || "Bapak/Ibu Guru";
+    const cName = getClassName(sch.class_id);
+    const sName = getSubjectName(sch.subject_id);
+    const senderName = user.name;
+    const senderRole =
+      user.role === "HEADMASTER"
+        ? "Kepala Sekolah"
+        : user.role === "SUPER_ADMIN"
+        ? "Super Admin"
+        : "Admin Kurikulum";
+
+    const msg = `Yth. ${tName},
+
+Mengingatkan untuk segera melengkapi Agenda Mengajar Harian & Presensi Siswa:
+📚 *Mata Pelajaran:* ${sName}
+🏫 *Kelas:* ${cName}
+⏰ *Jam Ke:* ${sch.start_period} - ${sch.end_period} (${sch.start_time} - ${sch.end_time} WIB)
+📅 *Hari:* ${sch.day_of_week}
+
+Silakan buka aplikasi My School ID:
+👉 https://myschoolid.web.app
+
+Terima kasih atas dedikasi dan kerjasamanya.
+
+Hormat kami,
+*${senderName}*
+${senderRole} - ${activeInstitution.name}`;
+
+    const rawPhone = teacher?.phone ? teacher.phone.replace(/[^0-9]/g, "") : "";
+    const cleanPhone = rawPhone.startsWith("0") ? "62" + rawPhone.slice(1) : rawPhone;
+
+    const url = cleanPhone
+      ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank");
+  };
+
+  const handleBroadcastUnfilledWA = () => {
+    const activeDaySchedules = schedules.filter(
+      (s) => monitorDay === "semua" || s.day_of_week === monitorDay
+    );
+    const unfilled = activeDaySchedules.filter(
+      (s) => !journals.some((j) => j.schedule_id === s.id)
+    );
+
+    if (unfilled.length === 0) {
+      alert("Alhamdulillah! Seluruh jadwal pada hari ini sudah terisi lengkap oleh guru.");
+      return;
+    }
+
+    const dayLabel = monitorDay === "semua" ? "Seluruh Jadwal" : `Hari ${monitorDay}`;
+    let text = `📢 *REKAPITULASI AGENDA MENGAJAR HARIAN*\n🏫 *${activeInstitution.name}*\n📅 *${dayLabel}*\n\nBapak/Ibu Guru berikut mohon untuk segera melengkapi jurnal mengajar & presensi siswa:\n\n`;
+
+    unfilled.forEach((sch, i) => {
+      const t = getTeacherName(sch.teacher_id);
+      const c = getClassName(sch.class_id);
+      const s = getSubjectName(sch.subject_id);
+      text += `${i + 1}. *${t}*\n   └ Kelas ${c} • ${s} (Jam ke ${sch.start_period}-${sch.end_period})\n`;
+    });
+
+    const senderRole = user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin Kurikulum";
+    text += `\nSilakan mengisi melalui aplikasi:\n👉 https://myschoolid.web.app\n\nTerima kasih atas dedikasi dan kerja samanya.\n— *${user.name}* (${senderRole})`;
+
+    navigator.clipboard.writeText(text);
+    setBroadcastCopied(true);
+    setTimeout(() => setBroadcastCopied(false), 3000);
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
+  const handleAppreciateWA = (sch: Schedule, jrn: JournalEntry) => {
+    const teacher = teachers.find((t) => t.id === sch.teacher_id);
+    const tName = teacher?.name || "Bapak/Ibu Guru";
+    const cName = getClassName(sch.class_id);
+    const sName = getSubjectName(sch.subject_id);
+
+    const msg = `Yth. ${tName},
+
+Terima kasih telah melengkapi agenda mengajar & presensi siswa:
+📚 *Mata Pelajaran:* ${sName}
+🏫 *Kelas:* ${cName}
+👥 *Presensi Siswa:* ${jrn.student_present_count} Hadir${jrn.student_sick_count ? `, ${jrn.student_sick_count} Sakit` : ""}${jrn.student_permit_count ? `, ${jrn.student_permit_count} Izin` : ""}${jrn.student_absent_count ? `, ${jrn.student_absent_count} Alpa` : ""}
+
+Tetap semangat mendidik dan membimbing siswa!
+
+Salam hangat,
+*${user.name}*
+${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution.name}`;
+
+    const rawPhone = teacher?.phone ? teacher.phone.replace(/[^0-9]/g, "") : "";
+    const cleanPhone = rawPhone.startsWith("0") ? "62" + rawPhone.slice(1) : rawPhone;
+
+    const url = cleanPhone
+      ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank");
+  };
+
   // ================= ACTIONS: LEMBAGA =================
   const handleOpenAddInst = () => {
     setEditingInst(null);
@@ -676,6 +808,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* 2. Navigasi Tab Admin Lengkap */}
       <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto pb-1 text-xs font-bold">
+        {/* Jika Kepala Sekolah, tab Supervisi ditaruh di awal */}
+        {isHeadmaster && (
+          <button
+            onClick={() => setActiveTab("monitor")}
+            className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === "monitor"
+                ? "bg-purple-700 text-white shadow-xs"
+                : "text-purple-800 bg-purple-50 hover:bg-purple-100"
+            }`}
+          >
+            <Award className="w-4 h-4 text-amber-300" />
+            <span>Supervisi & Pantauan Guru</span>
+          </button>
+        )}
+
         <button
           onClick={() => setActiveTab("jadwal")}
           className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
@@ -717,19 +864,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               : "text-slate-600 hover:bg-slate-100"
           }`}
         >
-          <Users className="w-4 h-4" /> Data Guru & Akun ({teachers.length})
+          <Users className="w-4 h-4" /> Data Guru & Kontak ({teachers.length})
         </button>
 
-        <button
-          onClick={() => setActiveTab("monitor")}
-          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            activeTab === "monitor"
-              ? "bg-teal-600 text-white shadow-xs"
-              : "text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          <CheckCircle2 className="w-4 h-4" /> Monitoring Harian
-        </button>
+        {/* Jika bukan Kepala Sekolah (Super Admin / Admin Kurikulum), tab monitoring diletakkan di sini */}
+        {!isHeadmaster && (
+          <button
+            onClick={() => setActiveTab("monitor")}
+            className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === "monitor"
+                ? "bg-teal-600 text-white shadow-xs"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <CheckCircle2 className="w-4 h-4" /> Supervisi & Monitoring Guru
+          </button>
+        )}
 
         {user.role === "SUPER_ADMIN" && (
           <button
@@ -1157,107 +1307,415 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* ================= TAB 5: MONITORING HARI INI ================= */}
-      {activeTab === "monitor" && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">
-                Live Monitoring Pengisian Jurnal Hari Ini
-              </h2>
-              <p className="text-xs text-slate-500">
-                Pantau kepatuhan guru dan keterisian jam belajar kelas secara real-time.
-              </p>
-            </div>
-            <button
-              onClick={() => window.print()}
-              className="px-4 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-2 cursor-pointer self-start sm:self-auto"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> Cetak / Ekspor Rekapitulasi
-            </button>
-          </div>
+      {/* ================= TAB 5: SUPERVISI & MONITORING HARIAN GURU ================= */}
+      {activeTab === "monitor" && (() => {
+        // Perhitungan Data Supervisi & Monitoring
+        const activeDaySchedules = schedules.filter(
+          (s) => monitorDay === "semua" || s.day_of_week === monitorDay
+        );
+        const filledSchedules = activeDaySchedules.filter((s) =>
+          journals.some((j) => j.schedule_id === s.id)
+        );
+        const unfilledSchedules = activeDaySchedules.filter(
+          (s) => !journals.some((j) => j.schedule_id === s.id)
+        );
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200">
-              <p className="text-xs font-bold text-emerald-800 uppercase">Jurnal Lengkap</p>
-              <p className="text-2xl font-black text-emerald-950 mt-1">{journals.length}</p>
-              <p className="text-[11px] text-emerald-700">Sudah diisi guru hari ini</p>
-            </div>
-            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200">
-              <p className="text-xs font-bold text-amber-800 uppercase">Belum Diisi</p>
-              <p className="text-2xl font-black text-amber-950 mt-1">
-                {Math.max(0, schedules.length - journals.length)}
-              </p>
-              <p className="text-[11px] text-amber-700">Memerlukan pengisian / colek</p>
-            </div>
-            <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200">
-              <p className="text-xs font-bold text-teal-800 uppercase">Persentase Kepatuhan</p>
-              <p className="text-2xl font-black text-teal-950 mt-1">
-                {schedules.length > 0
-                  ? Math.round((journals.length / schedules.length) * 100)
-                  : 100}
-                %
-              </p>
-              <p className="text-[11px] text-teal-700">Standar supervisi sekolah</p>
-            </div>
-          </div>
+        const totalSesi = activeDaySchedules.length;
+        const totalFilled = filledSchedules.length;
+        const totalUnfilled = unfilledSchedules.length;
+        const compliancePercent = totalSesi > 0 ? Math.round((totalFilled / totalSesi) * 100) : 100;
 
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
-            <div className="divide-y divide-slate-100">
-              {schedules.map((sch) => {
-                const jrn = journals.find((j) => j.schedule_id === sch.id);
-                const isFilled = Boolean(jrn);
-                const tName = getTeacherName(sch.teacher_id);
-                const cName = getClassName(sch.class_id);
-                const sName = getSubjectName(sch.subject_id);
+        // Filter daftar jadwal
+        const displayedSchedules = schedules.filter((sch) => {
+          if (monitorDay !== "semua" && sch.day_of_week !== monitorDay) return false;
+          if (monitorClassFilter !== "semua" && sch.class_id !== monitorClassFilter) return false;
+          const hasJournal = journals.some((j) => j.schedule_id === sch.id);
+          if (monitorStatusFilter === "sudah" && !hasJournal) return false;
+          if (monitorStatusFilter === "belum" && hasJournal) return false;
 
+          if (monitorSearchQuery.trim()) {
+            const q = monitorSearchQuery.toLowerCase();
+            const t = getTeacherName(sch.teacher_id).toLowerCase();
+            const s = getSubjectName(sch.subject_id).toLowerCase();
+            const c = getClassName(sch.class_id).toLowerCase();
+            if (!t.includes(q) && !s.includes(q) && !c.includes(q)) return false;
+          }
+          return true;
+        });
+
+        return (
+          <div className="space-y-5">
+            {/* 1. Header Supervisi & Tombol Aksi WhatsApp Massal */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-5 rounded-3xl border border-slate-200 shadow-2xs">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="p-1 rounded-lg bg-teal-50 text-teal-700">
+                    <Award className="w-4 h-4" />
+                  </span>
+                  <h2 className="text-base sm:text-lg font-black text-slate-900">
+                    {isHeadmaster ? "Supervisi & Live Monitoring Guru" : "Live Monitoring Pengisian Jurnal Mengajar"}
+                  </h2>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Pantau kepatuhan agenda mengajar, presensi siswa, dan ingatkan guru secara langsung via WhatsApp.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+                <button
+                  type="button"
+                  onClick={handleBroadcastUnfilledWA}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                  title="Kirim pesan rekap guru yang belum mengisi ke grup WA guru"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{broadcastCopied ? "✓ Rekap Disalin!" : "Kirim / Salin Rekap ke Grup WA"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3.5 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-2xs"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Cetak / Ekspor</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Pilihan Hari (Filter Hari KBM) */}
+            <div className="bg-white p-3 rounded-2xl border border-slate-200 flex flex-wrap items-center gap-1.5 shadow-2xs">
+              <span className="text-xs font-bold text-slate-500 px-2 flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5 text-teal-600" /> Hari:
+              </span>
+              {(["Senin", "Selasa", "Rabu", "Kamis", "Jumat"] as const).map((day) => {
+                const isSelected = monitorDay === day;
+                const isToday = getTodayIndoDay() === day;
                 return (
-                  <div
-                    key={sch.id}
-                    className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition"
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => setMonitorDay(day)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                      isSelected
+                        ? "bg-teal-600 text-white shadow-xs"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
                   >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-slate-900">{tName}</span>
-                        <span className="text-xs font-mono text-slate-500">
-                          (Kelas {cName} • {sName})
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {sch.day_of_week}, Jam Ke {sch.start_period}-{sch.end_period} ({sch.start_time} - {sch.end_time} WIB)
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      {isFilled ? (
-                        <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full flex items-center gap-1">
-                          <CheckCircle2 className="w-4 h-4" /> Jurnal Lengkap ({jrn?.student_present_count} Hadir)
-                        </span>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-amber-700 bg-amber-100 px-3 py-1 rounded-full flex items-center gap-1">
-                            <AlertCircle className="w-4 h-4" /> Belum Diisi
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const msg = `Halo ${tName}, mohon mengisi jurnal mengajar harian untuk Kelas ${cName} (${sName}) di aplikasi My School ID.`;
-                              window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
-                            }}
-                            className="px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-[11px] font-bold text-slate-700 hover:bg-slate-100"
-                          >
-                            Colek WA
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                    <span>{day}</span>
+                    {isToday && (
+                      <span className={`text-[10px] px-1 py-0.2 rounded-full font-extrabold ${isSelected ? "bg-white text-teal-800" : "bg-teal-100 text-teal-800"}`}>
+                        Hari Ini
+                      </span>
+                    )}
+                  </button>
                 );
               })}
+              <button
+                type="button"
+                onClick={() => setMonitorDay("semua")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  monitorDay === "semua"
+                    ? "bg-teal-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                Semua Hari ({schedules.length})
+              </button>
             </div>
+
+            {/* 3. Kartu Statistik Kepatuhan Supervisi */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Total Jadwal KBM ({monitorDay === "semua" ? "Mingguan" : monitorDay})
+                </span>
+                <p className="text-2xl font-black text-slate-900 mt-1">{totalSesi}</p>
+                <p className="text-[11px] text-slate-500">Sesi pelajaran terdaftar</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200">
+                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                  Jurnal Lengkap
+                </span>
+                <p className="text-2xl font-black text-emerald-950 mt-1">{totalFilled}</p>
+                <p className="text-[11px] text-emerald-700">Sudah diisi & diverifikasi</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200">
+                <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">
+                  Belum Diisi
+                </span>
+                <p className="text-2xl font-black text-amber-950 mt-1">{totalUnfilled}</p>
+                <p className="text-[11px] text-amber-700 font-semibold">Perlu diingatkan via WA</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200">
+                <span className="text-[10px] font-bold text-teal-800 uppercase tracking-wider block">
+                  Kepatuhan Mengajar
+                </span>
+                <p className="text-2xl font-black text-teal-950 mt-1">{compliancePercent}%</p>
+                <p className="text-[11px] text-teal-700">Tingkat kedisiplinan guru</p>
+              </div>
+            </div>
+
+            {/* 4. Toolbar Filter Status, Kelas & Pencarian */}
+            <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-bold text-slate-500 flex items-center gap-1">
+                  <Filter className="w-3.5 h-3.5" /> Filter:
+                </span>
+                <select
+                  value={monitorStatusFilter}
+                  onChange={(e) => setMonitorStatusFilter(e.target.value as any)}
+                  className="p-2 rounded-xl border border-slate-300 font-semibold text-slate-700 bg-white"
+                >
+                  <option value="semua">Semua Status</option>
+                  <option value="belum">⚠️ Belum Diisi ({totalUnfilled})</option>
+                  <option value="sudah">✅ Sudah Lengkap ({totalFilled})</option>
+                </select>
+
+                <select
+                  value={monitorClassFilter}
+                  onChange={(e) => setMonitorClassFilter(e.target.value)}
+                  className="p-2 rounded-xl border border-slate-300 font-semibold text-slate-700 bg-white"
+                >
+                  <option value="semua">Semua Kelas</option>
+                  {classes.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      Kelas {cls.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="Cari nama guru, mata pelajaran, atau kelas..."
+                  value={monitorSearchQuery}
+                  onChange={(e) => setMonitorSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-800 font-medium focus:outline-hidden focus:border-teal-500"
+                />
+              </div>
+            </div>
+
+            {/* 5. Daftar Agenda Mengajar Guru & Tombol Pengingat WhatsApp */}
+            <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-2xs">
+              <div className="divide-y divide-slate-100">
+                {displayedSchedules.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 text-xs">
+                    Tidak ada jadwal yang sesuai dengan filter yang dipilih.
+                  </div>
+                ) : (
+                  displayedSchedules.map((sch) => {
+                    const jrn = journals.find((j) => j.schedule_id === sch.id);
+                    const isFilled = Boolean(jrn);
+                    const teacher = teachers.find((t) => t.id === sch.teacher_id);
+                    const tName = teacher?.name || getTeacherName(sch.teacher_id);
+                    const cName = getClassName(sch.class_id);
+                    const sName = getSubjectName(sch.subject_id);
+
+                    return (
+                      <div
+                        key={sch.id}
+                        className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-3.5 hover:bg-slate-50/80 transition"
+                      >
+                        {/* Identitas Guru & Jam Mengajar */}
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-800 border border-teal-200 flex items-center justify-center font-bold text-sm shrink-0 mt-0.5">
+                            {tName.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-sm text-slate-900">{tName}</span>
+                              <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                                NIP: {teacher?.nip || "-"}
+                              </span>
+                              {teacher?.phone && (
+                                <span className="text-[11px] text-slate-500 font-mono flex items-center gap-0.5">
+                                  <Phone className="w-3 h-3 text-slate-400" /> {teacher.phone}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <span className="text-xs font-bold text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-lg border border-teal-200">
+                                Kelas {cName}
+                              </span>
+                              <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-lg">
+                                {sName}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                • {sch.day_of_week}, Jam Ke {sch.start_period}-{sch.end_period} ({sch.start_time} - {sch.end_time} WIB)
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Status Jurnal & Tombol Pengingat WhatsApp */}
+                        <div className="flex items-center gap-2 shrink-0 self-start md:self-center flex-wrap">
+                          {isFilled && jrn ? (
+                            <>
+                              <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                <span>Lengkap ({jrn.student_present_count} Hadir)</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setInspectingJournal({ journal: jrn, schedule: sch })}
+                                className="px-3 py-1.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                                title="Lihat detail materi dan presensi yang diisi guru"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Lihat Jurnal</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleAppreciateWA(sch, jrn)}
+                                className="p-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition cursor-pointer"
+                                title="Kirim apresiasi / konfirmasi via WhatsApp"
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-xs font-bold text-amber-800 bg-amber-100 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                                <AlertCircle className="w-4 h-4 text-amber-600" />
+                                <span>Belum Mengisi</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleSendReminderWA(sch)}
+                                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                                title="Kirim pesan pengingat resmi ke nomor WhatsApp guru"
+                              >
+                                <Send className="w-3.5 h-3.5" />
+                                <span>Ingatkan via WA</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* 6. Modal Inspeksi Detail Jurnal (Supervisi Kepala Sekolah) */}
+            {inspectingJournal && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+                <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 my-8">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-black text-slate-900 leading-tight">
+                          Detail Jurnal Mengajar
+                        </h3>
+                        <p className="text-[11px] text-slate-500">
+                          {inspectingJournal.schedule.day_of_week} • Jam Ke {inspectingJournal.schedule.start_period}-{inspectingJournal.schedule.end_period} ({inspectingJournal.schedule.start_time} WIB)
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setInspectingJournal(null)}
+                      className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 text-xs">
+                    <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase block">Guru Pengampu</span>
+                        <span className="font-bold text-slate-900">
+                          {getTeacherName(inspectingJournal.schedule.teacher_id)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase block">Kelas & Mapel</span>
+                        <span className="font-bold text-slate-900">
+                          Kelas {getClassName(inspectingJournal.schedule.class_id)} • {getSubjectName(inspectingJournal.schedule.subject_id)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Materi Pokok / Bahasan</span>
+                      <div className="p-3 bg-white border border-slate-200 rounded-xl font-medium text-slate-800">
+                        {inspectingJournal.journal.topic_materials || "Tidak ada materi terlampir."}
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Aktivitas & Tujuan Pembelajaran</span>
+                      <div className="p-3 bg-white border border-slate-200 rounded-xl text-slate-700 leading-relaxed">
+                        {inspectingJournal.journal.learning_activities || inspectingJournal.journal.learning_objective || "-"}
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Rincian Kehadiran Siswa</span>
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200">
+                          <p className="font-black text-base text-emerald-800">{inspectingJournal.journal.student_present_count}</p>
+                          <p className="text-[10px] font-bold text-emerald-600">Hadir (H)</p>
+                        </div>
+                        <div className="p-2 rounded-xl bg-blue-50 border border-blue-200">
+                          <p className="font-black text-base text-blue-800">{inspectingJournal.journal.student_sick_count || 0}</p>
+                          <p className="text-[10px] font-bold text-blue-600">Sakit (S)</p>
+                        </div>
+                        <div className="p-2 rounded-xl bg-amber-50 border border-amber-200">
+                          <p className="font-black text-base text-amber-800">{inspectingJournal.journal.student_permit_count || 0}</p>
+                          <p className="text-[10px] font-bold text-amber-600">Izin (I)</p>
+                        </div>
+                        <div className="p-2 rounded-xl bg-rose-50 border border-rose-200">
+                          <p className="font-black text-base text-rose-800">{inspectingJournal.journal.student_absent_count || 0}</p>
+                          <p className="text-[10px] font-bold text-rose-600">Alpa (A)</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Catatan Kejadian / Tindak Lanjut Guru</span>
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 italic">
+                        {inspectingJournal.journal.teacher_notes || "Tidak ada catatan khusus kejadian kelas."}
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] text-slate-400 text-right">
+                      Dikirim pada: {new Date(inspectingJournal.journal.submitted_at).toLocaleString("id-ID")}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => handleAppreciateWA(inspectingJournal.schedule, inspectingJournal.journal)}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>Kirim Apresiasi WA</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInspectingJournal(null)}
+                      className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer"
+                    >
+                      Tutup
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ================= TAB 6: KELOLA MULTI-LEMBAGA ================= */}
       {activeTab === "lembaga" && user.role === "SUPER_ADMIN" && (

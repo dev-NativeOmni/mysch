@@ -16,6 +16,7 @@ import {
   Shield,
   Sparkles,
   Settings,
+  Award,
 } from "lucide-react";
 
 interface NavbarProps {
@@ -186,6 +187,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {user.role === "SUPER_ADMIN" ? (
                       <span className="text-amber-600 font-semibold flex items-center gap-0.5">
                         <Shield className="w-2.5 h-2.5" /> Super Admin
+                      </span>
+                    ) : user.role === "HEADMASTER" ? (
+                      <span className="text-purple-700 font-semibold flex items-center gap-0.5">
+                        <Award className="w-2.5 h-2.5" /> Kepala Sekolah
                       </span>
                     ) : user.role === "ADMIN" ? (
                       <span className="text-blue-600 font-semibold">Admin Kurikulum</span>

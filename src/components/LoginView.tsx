@@ -111,6 +111,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
         // 1. Cocok dengan NIP / Username langsung (misal: "21", "1", "J9", "A", dll.)
         if (uNip === cleanInput) return true;
 
+        // Khusus Kepala Sekolah: cocok jika ketik "A", "KEPALA", "KS", atau "KEPALASEKOLAH"
+        if (
+          u.role === "HEADMASTER" &&
+          (cleanInput === "KEPALA" || cleanInput === "KS" || cleanInput === "KEPALASEKOLAH")
+        ) {
+          return true;
+        }
+
         // 2. Cocok dengan nomor telepon / WA
         if (u.phone === nipInput.trim()) return true;
 
