@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MySch — Agenda Harian & Presensi Mengajar Guru",
-  description: "Web App MySch: Jurnal Harian Guru, Presensi Siswa, dan Manajemen Jadwal Multi-Lembaga",
+  title: "My School ID — Agenda Harian & Presensi Mengajar Guru",
+  description: "Web App My School ID: Jurnal Harian Guru, Presensi Siswa, dan Manajemen Jadwal Multi-Lembaga",
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.ico",

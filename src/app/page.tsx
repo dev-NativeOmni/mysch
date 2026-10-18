@@ -73,6 +73,10 @@ export default function Home() {
     setInstitutions(list);
   };
 
+  const handleUserUpdated = (updatedUser: User) => {
+    setCurrentUser(updatedUser);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -80,7 +84,7 @@ export default function Home() {
           <div className="w-12 h-12 rounded-2xl bg-teal-600 text-white flex items-center justify-center mx-auto animate-bounce shadow-md">
             <GraduationCap className="w-6 h-6" />
           </div>
-          <p className="text-xs font-bold text-slate-600">Memuat MySch...</p>
+          <p className="text-xs font-bold text-slate-600">Memuat My School ID...</p>
         </div>
       </div>
     );
@@ -107,6 +111,7 @@ export default function Home() {
         institutions={institutions}
         onSwitchInstitution={handleSwitchInstitution}
         onLogout={handleLogout}
+        onUserUpdated={handleUserUpdated}
       />
 
       {/* Admin Floating Switcher to Preview Teacher View */}
@@ -139,6 +144,7 @@ export default function Home() {
           <TeacherDashboard
             user={currentUser}
             activeInstitution={activeInstitution}
+            onUserUpdated={handleUserUpdated}
           />
         )}
       </main>

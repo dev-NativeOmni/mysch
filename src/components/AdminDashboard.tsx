@@ -58,7 +58,10 @@ import {
   X,
   Search,
   Check,
+  Camera,
+  Upload,
 } from "lucide-react";
+import { compressImage } from "@/lib/imageUtils";
 
 interface AdminDashboardProps {
   user: User;
@@ -77,6 +80,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onRefreshInstitutions,
   onSwitchInstitution,
 }) => {
+  const isSuperAdmin = user.role === "SUPER_ADMIN";
   const [activeTab, setActiveTab] = useState<AdminTab>("jadwal");
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -146,6 +150,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newInstToken, setNewInstToken] = useState("");
   const [newInstLevel, setNewInstLevel] = useState<"SD" | "SMP" | "SMA" | "SMK">("SMK");
   const [newInstNpsn, setNewInstNpsn] = useState("");
+  const [newInstLogo, setNewInstLogo] = useState("");
 
   const [instToDelete, setInstToDelete] = useState<Institution | null>(null);
   const [deleteInstConfirmInput, setDeleteInstConfirmInput] = useState("");
@@ -193,7 +198,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Share via WhatsApp
   const handleShareWA = () => {
-    const text = `Halo Bapak/Ibu Guru ${activeInstitution.name}. Silakan isi jurnal mengajar harian menggunakan Token Lembaga: *${activeInstitution.token_lembaga}* di aplikasi MySch (https://myschoolid.web.app).`;
+    const text = `Halo Bapak/Ibu Guru ${activeInstitution.name}. Silakan isi jurnal mengajar harian menggunakan Token Lembaga: *${activeInstitution.token_lembaga}* di aplikasi My School ID (https://myschoolid.web.app).`;
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
   };
@@ -458,7 +463,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleShareResetPinWA = () => {
     if (!targetUserForReset) return;
-    const msg = `Halo ${targetUserForReset.name}, akun MySch Anda di ${activeInstitution.name} telah direset.\n\n*Token Lembaga:* ${activeInstitution.token_lembaga}\n*NIP / ID:* ${targetUserForReset.nip}\n*PIN Baru:* ${newPinValue}\n\nSilakan masuk melalui: https://myschoolid.web.app`;
+    const msg = `Halo ${targetUserForReset.name}, akun My School ID Anda di ${activeInstitution.name} telah direset.\n\n*Token Lembaga:* ${activeInstitution.token_lembaga}\n*NIP / ID:* ${targetUserForReset.nip}\n*PIN Baru:* ${newPinValue}\n\nSilakan masuk melalui: https://myschoolid.web.app`;
     window.open(`https://wa.me/${targetUserForReset.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
@@ -476,6 +481,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setNewInstToken("");
     setNewInstLevel("SMK");
     setNewInstNpsn("");
+    setNewInstLogo("");
     setShowAddInstModal(true);
   };
 
@@ -485,7 +491,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setNewInstToken(inst.token_lembaga);
     setNewInstLevel(inst.education_level as any);
     setNewInstNpsn(inst.npsn || "");
+    setNewInstLogo(inst.logo_url || "");
     setShowAddInstModal(true);
+  };
+
+  const handleDirectUploadLogo = async (inst: Institution, file: File) => {
+    try {
+      const compressed = await compressImage(file, 360, 0.85);
+      const updated: Institution = { ...inst, logo_url: compressed };
+      await saveInstitution(updated);
+      if (activeInstitution.id === inst.id) {
+        onSwitchInstitution(updated);
+      }
+      onRefreshInstitutions();
+      alert(`Logo untuk ${inst.name} berhasil diperbarui!`);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Gagal mengunggah logo.");
+    }
   };
 
   const handleSaveInstitution = async (e: React.FormEvent) => {
@@ -502,7 +525,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       name: newInstName.trim(),
       education_level: newInstLevel,
       npsn: newInstNpsn.trim() || undefined,
-      logo_url: editingInst?.logo_url || "⚙️",
+      logo_url: newInstLogo.trim() || editingInst?.logo_url || "🏫",
       is_active: true,
       created_at: editingInst?.created_at || new Date().toISOString(),
     };
@@ -545,8 +568,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-2xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center text-2xl shrink-0">
-              {activeInstitution.logo_url || "🏫"}
+            <div className="relative group w-14 h-14 rounded-2xl bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center text-2xl shrink-0 overflow-hidden">
+              {activeInstitution.logo_url &&
+              (activeInstitution.logo_url.startsWith("data:") ||
+                activeInstitution.logo_url.startsWith("http")) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={activeInstitution.logo_url}
+                  alt={activeInstitution.name}
+                  className="w-full h-full object-contain p-1 bg-white rounded-2xl"
+                />
+              ) : (
+                <span>{activeInstitution.logo_url || "🏫"}</span>
+              )}
+              {isSuperAdmin && (
+                <label
+                  className="absolute inset-0 bg-black/60 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition rounded-2xl text-[9px] font-bold"
+                  title="Klik untuk ubah logo sekolah aktif"
+                >
+                  <Camera className="w-4 h-4 mb-0.5" />
+                  <span>Logo</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleDirectUploadLogo(activeInstitution, file);
+                    }}
+                  />
+                </label>
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -561,7 +613,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Panel Administrasi & Manajemen Akademik Lengkap • MySch
+                Panel Administrasi & Manajemen Akademik Lengkap • My School ID
               </p>
             </div>
           </div>
@@ -1189,7 +1241,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <button
                             type="button"
                             onClick={() => {
-                              const msg = `Halo ${tName}, mohon mengisi jurnal mengajar harian untuk Kelas ${cName} (${sName}) di aplikasi MySch.`;
+                              const msg = `Halo ${tName}, mohon mengisi jurnal mengajar harian untuk Kelas ${cName} (${sName}) di aplikasi My School ID.`;
                               window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
                             }}
                             className="px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-[11px] font-bold text-slate-700 hover:bg-slate-100"
@@ -1239,8 +1291,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 >
                   <div className="space-y-2">
                     <div className="flex items-start justify-between">
-                      <div className="w-12 h-12 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center text-xl">
-                        {inst.logo_url || "🏫"}
+                      <div className="relative group w-12 h-12 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center overflow-hidden shrink-0">
+                        {inst.logo_url &&
+                        (inst.logo_url.startsWith("data:") ||
+                          inst.logo_url.startsWith("http")) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={inst.logo_url}
+                            alt={inst.name}
+                            className="w-full h-full object-contain p-1 bg-white"
+                          />
+                        ) : (
+                          <span className="text-xl">{inst.logo_url || "🏫"}</span>
+                        )}
+                        <label
+                          className="absolute inset-0 bg-black/60 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition rounded-xl"
+                          title="Klik untuk ubah logo sekolah ini"
+                        >
+                          <Camera className="w-4 h-4" />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleDirectUploadLogo(inst, file);
+                            }}
+                          />
+                        </label>
                       </div>
                       <div className="flex items-center gap-1">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
@@ -1283,6 +1361,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     >
                       <Edit3 className="w-3.5 h-3.5" /> Edit Token
                     </button>
+                    <label
+                      className="py-1.5 px-3 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs transition flex items-center gap-1 cursor-pointer"
+                      title="Ganti logo sekolah"
+                    >
+                      <Camera className="w-3.5 h-3.5" /> Logo
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleDirectUploadLogo(inst, file);
+                        }}
+                      />
+                    </label>
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(inst.token_lembaga);
@@ -2086,6 +2179,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     onChange={(e) => setNewInstNpsn(e.target.value)}
                     className="w-full p-2.5 rounded-xl border border-slate-300 font-mono"
                   />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Logo Sekolah</label>
+                <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                  <div className="w-14 h-14 rounded-xl bg-white border border-slate-200 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
+                    {newInstLogo &&
+                    (newInstLogo.startsWith("data:") || newInstLogo.startsWith("http")) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={newInstLogo} alt="Logo" className="w-full h-full object-contain p-1" />
+                    ) : (
+                      <span className="text-2xl">{newInstLogo || "🏫"}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <label className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1 cursor-pointer transition">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Unggah Logo</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              try {
+                                const compressed = await compressImage(file, 360, 0.85);
+                                setNewInstLogo(compressed);
+                              } catch (err: any) {
+                                alert(err.message || "Gagal memproses gambar");
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+                      {newInstLogo && (
+                        <button
+                          type="button"
+                          onClick={() => setNewInstLogo("")}
+                          className="px-2.5 py-1.5 rounded-xl bg-slate-200 hover:bg-rose-100 hover:text-rose-700 text-slate-700 font-semibold text-xs transition cursor-pointer"
+                        >
+                          Hapus
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      Format: JPG, PNG, atau WebP. Gambar disesuaikan secara proporsional.
+                    </p>
+                  </div>
                 </div>
               </div>
 

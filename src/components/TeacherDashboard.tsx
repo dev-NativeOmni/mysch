@@ -5,6 +5,7 @@ import { User, Institution, Schedule, JournalEntry, ClassRoom, Subject } from "@
 import { getSchedules, getJournals, getClasses, getSubjects } from "@/lib/storage";
 import { JournalWizardModal } from "./JournalWizardModal";
 import { JournalHistoryModal } from "./JournalHistoryModal";
+import { ProfileModal } from "./ProfileModal";
 import {
   Calendar,
   Clock,
@@ -17,16 +18,19 @@ import {
   Users,
   ChevronRight,
   School,
+  User as UserIcon,
 } from "lucide-react";
 
 interface TeacherDashboardProps {
   user: User;
   activeInstitution: Institution;
+  onUserUpdated?: (user: User) => void;
 }
 
 export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   user,
   activeInstitution,
+  onUserUpdated,
 }) => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [journals, setJournals] = useState<JournalEntry[]>([]);
@@ -37,6 +41,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   // Modal Wizard State
   const [activeWizardSchedule, setActiveWizardSchedule] = useState<Schedule | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Load teacher's schedules and journals
   const loadData = async () => {
@@ -107,14 +112,24 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           </p>
         </div>
 
-        {/* Tombol Riwayat Jurnal */}
-        <button
-          onClick={() => setShowHistoryModal(true)}
-          className="self-start sm:self-center px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-2 transition cursor-pointer"
-        >
-          <History className="w-4 h-4 text-slate-600" />
-          <span>Lihat Riwayat Jurnal ({journals.length})</span>
-        </button>
+        {/* Tombol Profil & Riwayat Jurnal */}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+          <button
+            onClick={() => setShowProfileModal(true)}
+            className="px-3.5 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+            title="Ganti Foto Profil & PIN"
+          >
+            <UserIcon className="w-4 h-4" />
+            <span>Profil & PIN</span>
+          </button>
+          <button
+            onClick={() => setShowHistoryModal(true)}
+            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+          >
+            <History className="w-4 h-4 text-slate-600" />
+            <span>Riwayat ({journals.length})</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. Hero Card "Jadwal Mengajar Saat Ini" (Mobile Ergonomics) */}
@@ -284,6 +299,19 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           onClose={() => setShowHistoryModal(false)}
           journals={journals}
           activeInstitution={activeInstitution}
+        />
+      )}
+
+      {/* Modal Profil & PIN Guru */}
+      {showProfileModal && (
+        <ProfileModal
+          user={user}
+          activeInstitution={activeInstitution}
+          isOpen={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+          onUserUpdated={(updatedUser) => {
+            if (onUserUpdated) onUserUpdated(updatedUser);
+          }}
         />
       )}
     </div>

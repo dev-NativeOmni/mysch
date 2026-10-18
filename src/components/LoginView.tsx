@@ -225,7 +225,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
             <School className="w-8 h-8 group-hover:scale-110 transition" />
           </button>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            MySch
+            My School ID
           </h1>
           <p className="mt-1 text-sm text-slate-600">
             Aplikasi Agenda Mengajar & Presensi Harian Guru

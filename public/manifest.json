@@ -1,6 +1,6 @@
 {
-  "name": "MySch — Agenda Mengajar & Presensi Harian Guru",
-  "short_name": "MySch",
+  "name": "My School ID — Agenda Mengajar & Presensi Harian Guru",
+  "short_name": "My School ID",
   "description": "Aplikasi Web Jurnal Mengajar dan Presensi Harian Guru",
   "start_url": "/",
   "display": "standalone",
