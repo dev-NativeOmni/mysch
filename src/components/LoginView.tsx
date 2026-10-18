@@ -16,12 +16,10 @@ import {
   CheckCircle2,
   AlertCircle,
   QrCode,
-  Sparkles,
   ArrowRight,
   ShieldCheck,
   Eye,
   EyeOff,
-  UserCheck,
 } from "lucide-react";
 
 interface LoginViewProps {
@@ -30,7 +28,7 @@ interface LoginViewProps {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({
-  initialToken = "SMPHARAPAN",
+  initialToken = "",
   onLoginSuccess,
 }) => {
   const [tokenInput, setTokenInput] = useState(initialToken);
@@ -43,7 +41,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
   const [showPin, setShowPin] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
-  // Modal Akses Khusus Super Admin via Logo
+  // Modal Akses Khusus Super Admin via Klik Logo
   const [showSuperAdminModal, setShowSuperAdminModal] = useState(false);
   const [superUsername, setSuperUsername] = useState("");
   const [superPassword, setSuperPassword] = useState("");
@@ -72,7 +70,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
           setTokenError("");
         } else {
           setVerifiedInstitution(null);
-          setTokenError("Token Lembaga tidak ditemukan. Periksa kembali atau tanyakan ke admin.");
+          setTokenError("Token Lembaga tidak ditemukan. Periksa kembali atau tanyakan ke admin sekolah Anda.");
         }
       } catch (err) {
         console.error(err);
@@ -84,7 +82,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
     return () => clearTimeout(timer);
   }, [tokenInput]);
 
-  // Submit Login
+  // Submit Login Guru / Admin Lembaga
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMsg("");
@@ -109,7 +107,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
       const user = users.find(
         (u) =>
           (u.nip === cleanNip || u.phone === cleanNip) &&
-          (u.pin === pinInput || pinInput === "123456")
+          u.pin === pinInput
       );
 
       if (!user) {
@@ -129,31 +127,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
       setErrorMsg("Terjadi kendala saat login. Silakan coba lagi.");
     } finally {
       setLoading(false);
-    }
-  };
-
-  // 1-Click Fast Demo Login Handler
-  const handleQuickDemo = async (
-    role: "rina" | "joko" | "budi" | "farida",
-    token: string
-  ) => {
-    setTokenInput(token);
-    const inst = await getInstitutionByToken(token);
-    if (!inst) return;
-    setVerifiedInstitution(inst);
-
-    let nip = "";
-    if (role === "rina") nip = "199208152019032001";
-    if (role === "joko") nip = "197204121998021002";
-    if (role === "budi") nip = "198006202005011003";
-    if (role === "farida") nip = "YYS-FARIDA";
-
-    const users = await getUsers();
-    const user = users.find((u) => u.nip === nip);
-    if (user) {
-      saveActiveToken(inst.token_lembaga);
-      saveSession(user, inst);
-      onLoginSuccess(user, inst);
     }
   };
 
@@ -201,9 +174,9 @@ export const LoginView: React.FC<LoginViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-6 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-linear-to-b from-teal-50/50 via-slate-50 to-slate-100 flex flex-col justify-center px-4 py-8 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        {/* Logo & Judul Aplikasi (Logo Dapat Diklik untuk Super Admin) */}
+        {/* Brand Header & Secret Super Admin Trigger via Logo */}
         <div className="text-center">
           <button
             type="button"
@@ -214,7 +187,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
               setShowSuperAdminModal(true);
             }}
             className="w-14 h-14 mx-auto rounded-2xl bg-teal-600 hover:bg-teal-700 active:scale-95 text-white flex items-center justify-center shadow-lg shadow-teal-600/20 mb-3 transition cursor-pointer group"
-            title="Akses Khusus Super Admin (Klik Logo)"
+            title="Akses Super Admin (Klik Logo)"
           >
             <School className="w-8 h-8 group-hover:scale-110 transition" />
           </button>
@@ -238,7 +211,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowQrModal(true)}
-                  className="text-xs font-medium text-teal-600 hover:text-teal-700 flex items-center gap-1"
+                  className="text-xs font-medium text-teal-600 hover:text-teal-700 flex items-center gap-1 cursor-pointer"
                 >
                   <QrCode className="w-3.5 h-3.5" /> Scan QR
                 </button>
@@ -249,8 +222,8 @@ export const LoginView: React.FC<LoginViewProps> = ({
                   type="text"
                   value={tokenInput}
                   onChange={(e) => setTokenInput(e.target.value.toUpperCase())}
-                  placeholder="Contoh: SMPHARAPAN"
-                  className="w-full px-3.5 py-2.5 text-base rounded-xl border border-slate-300 font-mono uppercase font-bold text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  placeholder="Masukkan Token Lembaga..."
+                  className="w-full px-3.5 py-2.5 text-base rounded-xl border border-slate-300 font-mono uppercase font-bold text-slate-800 placeholder:text-slate-400 placeholder:font-normal placeholder:normal-case focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   required
                 />
               </div>
@@ -258,44 +231,49 @@ export const LoginView: React.FC<LoginViewProps> = ({
               {/* Status Validasi Token Lembaga */}
               {isCheckingToken && (
                 <p className="mt-1.5 text-xs text-slate-500 flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-slate-400 animate-ping" />
-                  Memeriksa token sekolah...
+                  <span className="w-2 h-2 rounded-full bg-teal-500 animate-ping" />
+                  Memeriksa lembaga...
                 </p>
-              )}
-
-              {verifiedInstitution && (
-                <div className="mt-2 p-2.5 rounded-xl bg-teal-50/80 border border-teal-200 flex items-center gap-2.5">
-                  <span className="text-xl">{verifiedInstitution.logo_url || "🏫"}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-teal-900 truncate">
-                      {verifiedInstitution.name}
-                    </p>
-                    <p className="text-[11px] text-teal-700 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-teal-600 shrink-0" />
-                      Terverifikasi ({verifiedInstitution.education_level})
-                    </p>
-                  </div>
-                </div>
               )}
 
               {tokenError && (
                 <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {tokenError}
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  {tokenError}
                 </p>
+              )}
+
+              {verifiedInstitution && !isCheckingToken && (
+                <div className="mt-2 p-2.5 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-between animate-fadeIn">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-teal-950">
+                        {verifiedInstitution.name}
+                      </p>
+                      <p className="text-[10px] text-teal-700">
+                        Jenjang: {verifiedInstitution.education_level} • NPSN: {verifiedInstitution.npsn || "-"}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-200/70 text-teal-900">
+                    Terverifikasi
+                  </span>
+                </div>
               )}
             </div>
 
-            {/* Input 2: NIP / Nomor WhatsApp */}
+            {/* Input 2: NIP atau No WhatsApp */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
-                2. NIP atau Nomor WhatsApp
+                2. NIP atau Nomor WhatsApp Guru
               </label>
               <div className="relative">
                 <input
                   type="text"
                   value={nipInput}
                   onChange={(e) => setNipInput(e.target.value)}
-                  placeholder="NIP atau 0812xxxx"
+                  placeholder="NIP atau No. WhatsApp..."
                   className="w-full px-3.5 py-2.5 text-base rounded-xl border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   required
                 />
@@ -308,7 +286,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
                   3. PIN Masuk (6 Digit)
                 </label>
-                <span className="text-[11px] text-slate-400">Default Demo: 123456</span>
+                <span className="text-[11px] text-slate-400">PIN 6 Angka</span>
               </div>
               <div className="relative">
                 <input
@@ -323,7 +301,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowPin(!showPin)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
                   {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -369,84 +347,15 @@ export const LoginView: React.FC<LoginViewProps> = ({
               )}
             </button>
           </form>
-
-          {/* Quick Demo Selector untuk Memudahkan Penguji */}
-          <div className="mt-6 pt-5 border-t border-slate-100">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-amber-500" /> Coba Masuk Sekali Klik (Demo Mode)
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => handleQuickDemo("rina", "SMPHARAPAN")}
-                className="p-2.5 rounded-xl border border-teal-200 bg-teal-50/50 hover:bg-teal-50 text-teal-900 text-left transition flex items-center gap-2"
-              >
-                <div className="w-7 h-7 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-[11px]">
-                  R
-                </div>
-                <div className="truncate">
-                  <p className="font-bold truncate">Bu Rina (Guru IPA)</p>
-                  <p className="text-[10px] text-teal-700">SMP Harapan 1</p>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickDemo("joko", "SMPHARAPAN")}
-                className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 text-left transition flex items-center gap-2"
-              >
-                <div className="w-7 h-7 rounded-full bg-slate-600 text-white flex items-center justify-center font-bold text-[11px]">
-                  J
-                </div>
-                <div className="truncate">
-                  <p className="font-bold truncate">Pak Joko (Guru Senior)</p>
-                  <p className="text-[10px] text-slate-500">SMP Harapan 1</p>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickDemo("budi", "SMPHARAPAN")}
-                className="p-2.5 rounded-xl border border-blue-200 bg-blue-50/50 hover:bg-blue-50 text-blue-900 text-left transition flex items-center gap-2"
-              >
-                <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[11px]">
-                  B
-                </div>
-                <div className="truncate">
-                  <p className="font-bold truncate">Pak Budi (Admin)</p>
-                  <p className="text-[10px] text-blue-700">Kurikulum & Jadwal</p>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSuperUsername("superadmin");
-                  setSuperPassword("123000");
-                  setSuperAdminError("");
-                  setShowSuperAdminModal(true);
-                }}
-                className="p-2.5 rounded-xl border border-amber-200 bg-amber-50/50 hover:bg-amber-50 text-amber-900 text-left transition flex items-center gap-2 cursor-pointer"
-              >
-                <div className="w-7 h-7 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-[11px]">
-                  SA
-                </div>
-                <div className="truncate">
-                  <p className="font-bold truncate">Super Admin Yayasan</p>
-                  <p className="text-[10px] text-amber-700">Klik Logo atau Di Sini</p>
-                </div>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Footer Catatan Ramah Guru */}
         <p className="mt-4 text-center text-xs text-slate-500">
-          Belum memiliki Token Lembaga? Hubungi Administrator Sekolah Anda.
+          Belum memiliki Token Lembaga atau lupa PIN? Hubungi Administrator Sekolah Anda.
         </p>
       </div>
 
-      {/* Modal Akses Khusus Super Admin (Buka via Logo / Tombol) */}
+      {/* Modal Akses Khusus Super Admin (Buka via Klik Logo MySch) */}
       {showSuperAdminModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full shadow-2xl border border-slate-200 space-y-4">
@@ -476,13 +385,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
               </button>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
-              <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <p>
-                Gunakan kredensial Super Admin: <strong>superadmin</strong> / <strong>123000</strong> untuk mengelola seluruh lembaga, jadwal, dan guru.
-              </p>
-            </div>
-
             <form onSubmit={handleSuperAdminLogin} className="space-y-3.5 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 uppercase tracking-wide text-[10px] mb-1">
@@ -508,14 +410,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
                     type={showSuperPin ? "text" : "password"}
                     value={superPassword}
                     onChange={(e) => setSuperPassword(e.target.value)}
-                    placeholder="123000"
+                    placeholder="••••••"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-mono tracking-wider text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowSuperPin(!showSuperPin)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
                     {showSuperPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -541,7 +443,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
         </div>
       )}
 
-      {/* Modal Simulasi Scan QR Code */}
+      {/* Modal Petunjuk Scan QR Code */}
       {showQrModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center space-y-4">
@@ -552,32 +454,22 @@ export const LoginView: React.FC<LoginViewProps> = ({
               Scan QR Code Lembaga
             </h3>
             <p className="text-xs text-slate-600">
-              Pindai poster QR Code yang tertempel di ruang guru sekolah Anda untuk mengisi token otomatis.
+              Arahkan kamera ke poster QR Code yang dibagikan oleh admin sekolah Anda untuk mengisi Token Lembaga otomatis.
             </p>
             <div className="p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
               <div className="w-32 h-32 mx-auto bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400">
                 <QrCode className="w-20 h-20 text-teal-600" />
               </div>
-              <p className="mt-2 text-[11px] font-mono font-bold text-slate-700">
-                SMPHARAPAN
+              <p className="mt-2 text-[11px] text-slate-500">
+                Hubungi operator sekolah jika Anda belum memiliki poster QR Code.
               </p>
             </div>
             <button
               type="button"
-              onClick={() => {
-                setTokenInput("SMPHARAPAN");
-                setShowQrModal(false);
-              }}
-              className="w-full py-2.5 rounded-xl bg-teal-600 text-white text-xs font-bold"
-            >
-              Simulasikan Scan Berhasil (SMP Harapan 1)
-            </button>
-            <button
-              type="button"
               onClick={() => setShowQrModal(false)}
-              className="w-full py-1.5 text-xs text-slate-500 hover:text-slate-700 font-medium"
+              className="w-full py-2.5 rounded-xl bg-teal-600 text-white text-xs font-bold cursor-pointer"
             >
-              Tutup
+              Tutup & Masukkan Token Manual
             </button>
           </div>
         </div>

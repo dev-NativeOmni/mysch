@@ -43,8 +43,25 @@ const STORAGE_KEYS = {
 function initLocalStorage() {
   if (typeof window === "undefined") return;
 
-  if (!localStorage.getItem(STORAGE_KEYS.INSTITUTIONS)) {
+  const rawInst = localStorage.getItem(STORAGE_KEYS.INSTITUTIONS);
+  if (!rawInst) {
     localStorage.setItem(STORAGE_KEYS.INSTITUTIONS, JSON.stringify(INITIAL_INSTITUTIONS));
+  } else {
+    try {
+      const parsed = JSON.parse(rawInst);
+      const cleaned = parsed.filter(
+        (i: any) =>
+          i.id !== "inst-sma-1" &&
+          i.id !== "inst-smk-1" &&
+          i.token_lembaga !== "SMAHARAPAN" &&
+          i.token_lembaga !== "SMKHARAPAN"
+      );
+      if (cleaned.length !== parsed.length) {
+        localStorage.setItem(STORAGE_KEYS.INSTITUTIONS, JSON.stringify(cleaned));
+      }
+    } catch {
+      localStorage.setItem(STORAGE_KEYS.INSTITUTIONS, JSON.stringify(INITIAL_INSTITUTIONS));
+    }
   }
   if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(INITIAL_USERS));

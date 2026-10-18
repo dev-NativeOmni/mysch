@@ -13,30 +13,6 @@ export const INITIAL_INSTITUTIONS: Institution[] = [
     is_active: true,
     created_at: "2026-01-10T08:00:00Z",
   },
-  {
-    id: "inst-sma-1",
-    token_lembaga: "SMAHARAPAN",
-    name: "SMA Harapan Bangsa",
-    education_level: "SMA",
-    npsn: "20108892",
-    address: "Jl. Cendrawasih No. 12, Kebayoran Baru",
-    phone: "021-7654322",
-    logo_url: "🎓",
-    is_active: true,
-    created_at: "2026-01-12T08:00:00Z",
-  },
-  {
-    id: "inst-smk-1",
-    token_lembaga: "SMKHARAPAN",
-    name: "SMK Harapan Mandiri",
-    education_level: "SMK",
-    npsn: "20108893",
-    address: "Jl. Teknologi No. 88, Kebayoran Baru",
-    phone: "021-7654323",
-    logo_url: "⚙️",
-    is_active: true,
-    created_at: "2026-01-15T08:00:00Z",
-  },
 ];
 
 export const INITIAL_USERS: User[] = [

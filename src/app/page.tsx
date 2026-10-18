@@ -18,7 +18,7 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeInstitution, setActiveInstitution] = useState<Institution | null>(null);
   const [institutions, setInstitutions] = useState<Institution[]>([]);
-  const [initialToken, setInitialToken] = useState("SMPHARAPAN");
+  const [initialToken, setInitialToken] = useState("");
   const [loading, setLoading] = useState(true);
 
   // Admin view toggle (Admin can switch to Teacher preview)

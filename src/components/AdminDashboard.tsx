@@ -1977,7 +1977,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <label className="block font-bold text-slate-700 mb-1">Nama Lembaga / Sekolah</label>
                 <input
                   type="text"
-                  placeholder="Contoh: SMA Harapan 2"
+                  placeholder="Contoh: SMP Nusantara"
                   value={newInstName}
                   onChange={(e) => setNewInstName(e.target.value)}
                   className="w-full p-2.5 rounded-xl border border-slate-300 font-bold"
@@ -1989,7 +1989,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <label className="block font-bold text-slate-700 mb-1">Token Lembaga (Kode Akses Guru)</label>
                 <input
                   type="text"
-                  placeholder="Contoh: SMAHARAPAN2"
+                  placeholder="Contoh: SMPNUSANTARA"
                   value={newInstToken}
                   onChange={(e) => setNewInstToken(e.target.value.toUpperCase())}
                   className="w-full p-2.5 rounded-xl border border-slate-300 font-mono uppercase font-bold"
