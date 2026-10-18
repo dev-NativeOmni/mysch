@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Institution, User } from "@/lib/types";
 import {
   getInstitutionByToken,
+  getInstitutions,
   getUsers,
   saveActiveToken,
   saveSession,
@@ -41,6 +42,13 @@ export const LoginView: React.FC<LoginViewProps> = ({
   const [pinInput, setPinInput] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+
+  // Modal Akses Khusus Super Admin via Logo
+  const [showSuperAdminModal, setShowSuperAdminModal] = useState(false);
+  const [superUsername, setSuperUsername] = useState("");
+  const [superPassword, setSuperPassword] = useState("");
+  const [superAdminError, setSuperAdminError] = useState("");
+  const [showSuperPin, setShowSuperPin] = useState(false);
 
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
@@ -149,14 +157,67 @@ export const LoginView: React.FC<LoginViewProps> = ({
     }
   };
 
+  // Login Khusus Super Admin via Logo
+  const handleSuperAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSuperAdminError("");
+
+    const cleanUser = superUsername.trim().toLowerCase();
+    if (cleanUser !== "superadmin" || superPassword !== "123000") {
+      setSuperAdminError("Username atau password Super Admin tidak cocok.");
+      return;
+    }
+
+    try {
+      const institutions = await getInstitutions();
+      const defaultInst = institutions[0] || {
+        id: "inst-smp-1",
+        token_lembaga: "SMPHARAPAN",
+        name: "SMP Negeri 1 Harapan",
+        education_level: "SMP",
+        is_active: true,
+        created_at: new Date().toISOString(),
+      };
+
+      const superUser: User = {
+        id: "user-superadmin",
+        nip: "superadmin",
+        name: "Super Administrator (Pusat Yayasan)",
+        phone: "081100000000",
+        pin: "123000",
+        role: "SUPER_ADMIN",
+        avatar_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+        is_active: true,
+      };
+
+      saveActiveToken(defaultInst.token_lembaga);
+      saveSession(superUser, defaultInst);
+      setShowSuperAdminModal(false);
+      onLoginSuccess(superUser, defaultInst);
+    } catch (err) {
+      console.error(err);
+      setSuperAdminError("Terjadi kendala saat login. Silakan coba lagi.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-6 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        {/* Logo & Judul Aplikasi */}
+        {/* Logo & Judul Aplikasi (Logo Dapat Diklik untuk Super Admin) */}
         <div className="text-center">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-teal-600 text-white flex items-center justify-center shadow-lg shadow-teal-600/20 mb-3">
-            <School className="w-8 h-8" />
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setSuperUsername("");
+              setSuperPassword("");
+              setSuperAdminError("");
+              setShowSuperAdminModal(true);
+            }}
+            className="w-14 h-14 mx-auto rounded-2xl bg-teal-600 hover:bg-teal-700 active:scale-95 text-white flex items-center justify-center shadow-lg shadow-teal-600/20 mb-3 transition cursor-pointer group"
+            title="Akses Khusus Super Admin (Klik Logo)"
+          >
+            <School className="w-8 h-8 group-hover:scale-110 transition" />
+          </button>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
             MySch
           </h1>
@@ -359,15 +420,20 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
               <button
                 type="button"
-                onClick={() => handleQuickDemo("farida", "SMPHARAPAN")}
-                className="p-2.5 rounded-xl border border-amber-200 bg-amber-50/50 hover:bg-amber-50 text-amber-900 text-left transition flex items-center gap-2"
+                onClick={() => {
+                  setSuperUsername("superadmin");
+                  setSuperPassword("123000");
+                  setSuperAdminError("");
+                  setShowSuperAdminModal(true);
+                }}
+                className="p-2.5 rounded-xl border border-amber-200 bg-amber-50/50 hover:bg-amber-50 text-amber-900 text-left transition flex items-center gap-2 cursor-pointer"
               >
                 <div className="w-7 h-7 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-[11px]">
-                  F
+                  SA
                 </div>
                 <div className="truncate">
-                  <p className="font-bold truncate">Hj. Farida (Super Admin)</p>
-                  <p className="text-[10px] text-amber-700">Multi-Lembaga Yayasan</p>
+                  <p className="font-bold truncate">Super Admin Yayasan</p>
+                  <p className="text-[10px] text-amber-700">Klik Logo atau Di Sini</p>
                 </div>
               </button>
             </div>
@@ -379,6 +445,101 @@ export const LoginView: React.FC<LoginViewProps> = ({
           Belum memiliki Token Lembaga? Hubungi Administrator Sekolah Anda.
         </p>
       </div>
+
+      {/* Modal Akses Khusus Super Admin (Buka via Logo / Tombol) */}
+      {showSuperAdminModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold shrink-0">
+                  <ShieldCheck className="w-5 h-5 text-amber-700" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 leading-tight">
+                    Portal Super Admin
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Akses Pusat Pengelola Seluruh Lembaga
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSuperAdminModal(false);
+                  setSuperAdminError("");
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
+              <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <p>
+                Gunakan kredensial Super Admin: <strong>superadmin</strong> / <strong>123000</strong> untuk mengelola seluruh lembaga, jadwal, dan guru.
+              </p>
+            </div>
+
+            <form onSubmit={handleSuperAdminLogin} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 uppercase tracking-wide text-[10px] mb-1">
+                  Username Super Admin
+                </label>
+                <input
+                  type="text"
+                  value={superUsername}
+                  onChange={(e) => setSuperUsername(e.target.value)}
+                  placeholder="superadmin"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 uppercase tracking-wide text-[10px] mb-1">
+                  Password Super Admin
+                </label>
+                <div className="relative">
+                  <input
+                    type={showSuperPin ? "text" : "password"}
+                    value={superPassword}
+                    onChange={(e) => setSuperPassword(e.target.value)}
+                    placeholder="123000"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-mono tracking-wider text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSuperPin(!showSuperPin)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showSuperPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {superAdminError && (
+                <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{superAdminError}</span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full py-3 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-md shadow-amber-600/20 transition flex items-center justify-center gap-1.5 cursor-pointer mt-2"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Masuk sebagai Super Admin</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal Simulasi Scan QR Code */}
       {showQrModal && (

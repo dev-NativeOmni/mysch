@@ -77,6 +77,17 @@ export const INITIAL_USERS: User[] = [
     is_active: true,
   },
   {
+    id: "user-superadmin",
+    institution_id: undefined, // Super Admin
+    nip: "superadmin",
+    name: "Super Administrator (Pusat Yayasan)",
+    phone: "081100000000",
+    pin: "123000",
+    role: "SUPER_ADMIN",
+    avatar_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+    is_active: true,
+  },
+  {
     id: "user-farida",
     institution_id: undefined, // Super Admin
     nip: "YYS-FARIDA",

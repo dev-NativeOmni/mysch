@@ -1,5 +1,21 @@
 {
   "projects": {
     "default": "mysch-app"
-  }
+  },
+  "targets": {
+    "mysch-app": {
+      "hosting": {
+        "mysch-id": [
+          "mysch-id"
+        ],
+        "mysch-app": [
+          "mysch-app"
+        ],
+        "myschoolid": [
+          "myschoolid"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
