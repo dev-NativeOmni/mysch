@@ -103,15 +103,48 @@ export const LoginView: React.FC<LoginViewProps> = ({
     setLoading(true);
     try {
       const users = await getUsers(verifiedInstitution.id);
-      const cleanNip = nipInput.trim();
-      const user = users.find(
-        (u) =>
-          (u.nip === cleanNip || u.phone === cleanNip) &&
-          u.pin === pinInput
-      );
+      const cleanInput = nipInput.trim().toUpperCase();
+      const user = users.find((u) => {
+        const uNip = u.nip.toUpperCase();
+        const teacherLetter = u.id.replace("user-", "").toUpperCase();
 
-      if (!user) {
-        setErrorMsg("Kredensial tidak cocok. Pastikan NIP / No. WA dan PIN benar.");
+        // 1. Cocok dengan NIP / Username langsung (misal: "21", "1", "J9", "A", dll.)
+        if (uNip === cleanInput) return true;
+
+        // 2. Cocok dengan nomor telepon / WA
+        if (u.phone === nipInput.trim()) return true;
+
+        // 3. Cocok dengan inisial guru huruf (misal: "B", "O", "H", "S", "Z")
+        if (teacherLetter === cleanInput) return true;
+
+        // 4. Cocok dengan nomor mata pelajaran yang diampu (misal: "1", "2", "21")
+        if (
+          u.subject_ids &&
+          u.subject_ids.some((sId) => {
+            const numStr = sId.replace("sub-", "");
+            const numInt = parseInt(numStr, 10).toString();
+            return numStr === cleanInput || numInt === cleanInput;
+          })
+        ) {
+          return true;
+        }
+
+        // 5. Cocok dengan kode jadwal di tabel (misal: "B21", "O1", "Q12", "M7", "T3")
+        if (
+          u.subject_ids &&
+          u.subject_ids.some((sId) => {
+            const numInt = parseInt(sId.replace("sub-", ""), 10);
+            return cleanInput === `${teacherLetter}${numInt}`;
+          })
+        ) {
+          return true;
+        }
+
+        return false;
+      });
+
+      if (!user || user.pin !== pinInput) {
+        setErrorMsg("Kredensial tidak cocok. Pastikan Nomor Mapel / Kode Guru dan PIN benar.");
         setLoading(false);
         return;
       }
@@ -263,17 +296,17 @@ export const LoginView: React.FC<LoginViewProps> = ({
               )}
             </div>
 
-            {/* Input 2: NIP atau No WhatsApp */}
+            {/* Input 2: Nomor Mapel / Kode Guru */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
-                2. NIP atau Nomor WhatsApp Guru
+                2. Nomor Mapel / Kode Guru (Contoh: 21, 1, atau B21)
               </label>
               <div className="relative">
                 <input
                   type="text"
                   value={nipInput}
                   onChange={(e) => setNipInput(e.target.value)}
-                  placeholder="NIP atau No. WhatsApp..."
+                  placeholder="Nomor Mapel atau Kode Guru..."
                   className="w-full px-3.5 py-2.5 text-base rounded-xl border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   required
                 />
