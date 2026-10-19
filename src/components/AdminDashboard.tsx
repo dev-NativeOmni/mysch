@@ -67,7 +67,10 @@ import {
   Filter,
   Phone,
   CheckCheck,
+  Download,
 } from "lucide-react";
+import * as XLSX from "xlsx";
+import StudentImportModal from "./StudentImportModal";
 import { compressImage } from "@/lib/imageUtils";
 
 interface AdminDashboardProps {
@@ -146,8 +149,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [selectedClassForStudents, setSelectedClassForStudents] = useState<ClassRoom | null>(null);
   const [classStudents, setClassStudents] = useState<Student[]>([]);
   const [newStudentNisn, setNewStudentNisn] = useState("");
+  const [newStudentNipd, setNewStudentNipd] = useState("");
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentGender, setNewStudentGender] = useState<"L" | "P">("L");
+  const [showStudentImportModal, setShowStudentImportModal] = useState(false);
+  const [importTargetClass, setImportTargetClass] = useState<ClassRoom | null>(null);
 
   // ================= MODAL MAPEL =================
   const [showSubjectModal, setShowSubjectModal] = useState(false);
@@ -356,6 +362,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const students = await getStudentsByClass(cls.id);
     setClassStudents(students);
     setNewStudentNisn("");
+    setNewStudentNipd("");
     setNewStudentName("");
     setNewStudentGender("L");
   };
@@ -369,6 +376,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       institution_id: activeInstitution.id,
       class_id: selectedClassForStudents.id,
       nisn: newStudentNisn.trim() || "00" + Math.floor(10000000 + Math.random() * 90000000),
+      nipd: newStudentNipd.trim() || undefined,
       full_name: newStudentName.trim(),
       gender: newStudentGender,
       is_active: true,
@@ -378,6 +386,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const updated = await getStudentsByClass(selectedClassForStudents.id);
     setClassStudents(updated);
     setNewStudentNisn("");
+    setNewStudentNipd("");
     setNewStudentName("");
     loadData();
   };
@@ -388,6 +397,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const updated = await getStudentsByClass(selectedClassForStudents.id);
     setClassStudents(updated);
     loadData();
+  };
+
+  const handleExportClassStudents = (cls: ClassRoom, studentsToExport: Student[]) => {
+    const wb = XLSX.utils.book_new();
+    const data = studentsToExport.map((s, idx) => ({
+      "No": idx + 1,
+      "Nama Lengkap": s.full_name,
+      "NISN": s.nisn,
+      "NIPD": s.nipd || "-",
+      "Jenis Kelamin": s.gender === "L" ? "Laki-laki" : "Perempuan",
+      "Kelas": cls.name,
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws["!cols"] = [{ wch: 6 }, { wch: 32 }, { wch: 16 }, { wch: 12 }, { wch: 16 }, { wch: 14 }];
+    XLSX.utils.book_append_sheet(wb, ws, "Daftar Siswa");
+    XLSX.writeFile(wb, `Daftar_Siswa_${cls.name.replace(/\s+/g, "_")}.xlsx`);
+  };
+
+  const handleExportAllStudents = () => {
+    const wb = XLSX.utils.book_new();
+    const data = allStudents.map((s, idx) => {
+      const cls = classes.find((c) => c.id === s.class_id);
+      return {
+        "No": idx + 1,
+        "Nama Lengkap": s.full_name,
+        "NISN": s.nisn,
+        "NIPD": s.nipd || "-",
+        "Jenis Kelamin": s.gender === "L" ? "Laki-laki" : "Perempuan",
+        "Kelas": cls ? cls.name : "-",
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws["!cols"] = [{ wch: 6 }, { wch: 32 }, { wch: 16 }, { wch: 12 }, { wch: 16 }, { wch: 14 }];
+    XLSX.utils.book_append_sheet(wb, ws, "Semua Siswa");
+    XLSX.writeFile(
+      wb,
+      `Data_Siswa_${activeInstitution.name.replace(/\s+/g, "_")}.xlsx`
+    );
   };
 
   // ================= ACTIONS: MAPEL =================
@@ -1038,14 +1085,38 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                 Kelola daftar kelas, tingkat, wali kelas, serta daftar nama siswa per rombel.
               </p>
             </div>
-            {canManage && (
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
               <button
-                onClick={handleOpenAddClass}
-                className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto"
+                onClick={handleExportAllStudents}
+                className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 border border-slate-200 shadow-2xs transition cursor-pointer"
+                title="Unduh seluruh data siswa dalam format Excel (.xlsx)"
               >
-                <Plus className="w-4 h-4" /> Tambah Kelas Baru
+                <Download className="w-3.5 h-3.5 text-slate-500" />
+                <span>Unduh Siswa (.xlsx)</span>
               </button>
-            )}
+              {canManage && (
+                <>
+                  <button
+                    onClick={() => {
+                      setImportTargetClass(null);
+                      setShowStudentImportModal(true);
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                    title="Impor peserta didik dari file Excel / Dapodik / CSV"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>Impor Data Siswa</span>
+                  </button>
+                  <button
+                    onClick={handleOpenAddClass}
+                    className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Tambah Kelas</span>
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -2200,12 +2271,37 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                   Total: {classStudents.length} siswa ({classStudents.filter((s) => s.gender === "L").length} Laki-laki, {classStudents.filter((s) => s.gender === "P").length} Perempuan)
                 </p>
               </div>
-              <button
-                onClick={() => setSelectedClassForStudents(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleExportClassStudents(selectedClassForStudents, classStudents)}
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                  title="Unduh daftar siswa kelas ini (.xlsx)"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="hidden sm:inline">Unduh Excel</span>
+                </button>
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImportTargetClass(selectedClassForStudents);
+                      setShowStudentImportModal(true);
+                    }}
+                    className="px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                    title="Impor daftar siswa khusus kelas ini"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Impor Siswa</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedClassForStudents(null)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Form Tambah Siswa Baru (Hanya untuk Admin / Super Admin) */}
@@ -2222,13 +2318,23 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                     required
                   />
                 </div>
-                <div className="w-32">
+                <div className="w-28">
                   <label className="block font-bold text-slate-700 mb-1">NISN (Opsional)</label>
                   <input
                     type="text"
                     placeholder="0081234567"
                     value={newStudentNisn}
                     onChange={(e) => setNewStudentNisn(e.target.value)}
+                    className="w-full p-2 rounded-xl border border-slate-300 bg-white font-mono"
+                  />
+                </div>
+                <div className="w-24">
+                  <label className="block font-bold text-slate-700 mb-1">NIPD (Opsional)</label>
+                  <input
+                    type="text"
+                    placeholder="12097"
+                    value={newStudentNipd}
+                    onChange={(e) => setNewStudentNipd(e.target.value)}
                     className="w-full p-2 rounded-xl border border-slate-300 bg-white font-mono"
                   />
                 </div>
@@ -2264,6 +2370,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                   <tr>
                     <th className="py-2.5 px-3">No</th>
                     <th className="py-2.5 px-3">NISN</th>
+                    <th className="py-2.5 px-3">NIPD</th>
                     <th className="py-2.5 px-3">Nama Lengkap</th>
                     <th className="py-2.5 px-3">L/P</th>
                     {canManage && <th className="py-2.5 px-3 text-right">Aksi</th>}
@@ -2274,6 +2381,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                     <tr key={s.id} className="hover:bg-slate-50">
                       <td className="py-2 px-3 text-slate-400 font-mono">{idx + 1}</td>
                       <td className="py-2 px-3 font-mono text-slate-500">{s.nisn}</td>
+                      <td className="py-2 px-3 font-mono text-slate-500">{s.nipd || "-"}</td>
                       <td className="py-2 px-3 font-bold text-slate-900">{s.full_name}</td>
                       <td className="py-2 px-3">
                         <span
@@ -2299,7 +2407,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                   ))}
                   {classStudents.length === 0 && (
                     <tr>
-                      <td colSpan={canManage ? 5 : 4} className="py-8 text-center text-slate-400 italic">
+                      <td colSpan={canManage ? 6 : 5} className="py-8 text-center text-slate-400 italic">
                         {canManage
                           ? "Belum ada siswa di kelas ini. Tambahkan siswa pertama di atas!"
                           : "Belum ada siswa terdaftar di rombel kelas ini."}
@@ -2839,6 +2947,25 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
           </div>
         </div>
       )}
+
+      {/* ================= MODAL IMPOR DATA PESERTA DIDIK ================= */}
+      <StudentImportModal
+        isOpen={showStudentImportModal}
+        onClose={() => {
+          setShowStudentImportModal(false);
+          setImportTargetClass(null);
+        }}
+        institutionId={activeInstitution.id}
+        classes={classes}
+        targetClass={importTargetClass}
+        onSuccess={async () => {
+          await loadData();
+          if (selectedClassForStudents) {
+            const updated = await getStudentsByClass(selectedClassForStudents.id);
+            setClassStudents(updated);
+          }
+        }}
+      />
     </div>
   );
 };

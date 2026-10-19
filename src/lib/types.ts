@@ -43,6 +43,7 @@ export interface Student {
   institution_id: string;
   class_id: string;
   nisn: string;
+  nipd?: string;
   full_name: string;
   gender: "L" | "P";
   is_active: boolean;

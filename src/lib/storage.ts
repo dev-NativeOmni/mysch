@@ -67,7 +67,13 @@ function initLocalStorage() {
   if (!localStorage.getItem(STORAGE_KEYS.SUBJECTS)) {
     localStorage.setItem(STORAGE_KEYS.SUBJECTS, JSON.stringify(INITIAL_SUBJECTS));
   }
-  if (!localStorage.getItem(STORAGE_KEYS.STUDENTS)) {
+  const rawStudents = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+  if (
+    !rawStudents ||
+    rawStudents.includes("Siswa X TJKT 1") ||
+    rawStudents.includes("std-01") ||
+    (JSON.parse(rawStudents || "[]").length < 50 && INITIAL_STUDENTS_8A.length > 50)
+  ) {
     localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(INITIAL_STUDENTS_8A));
   }
   if (!localStorage.getItem(STORAGE_KEYS.SCHEDULES)) {
@@ -492,6 +498,56 @@ export async function deleteStudent(studentId: string): Promise<void> {
   const all: Student[] = raw ? JSON.parse(raw) : INITIAL_STUDENTS_8A;
   const filtered = all.filter((s) => s.id !== studentId);
   localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(filtered));
+}
+
+export async function saveStudentsBulk(
+  institutionId: string,
+  newStudents: Student[],
+  mode: "merge" | "replace" = "merge",
+  targetClassId?: string
+): Promise<void> {
+  initLocalStorage();
+  const raw = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+  let all: Student[] = raw ? JSON.parse(raw) : INITIAL_STUDENTS_8A;
+
+  if (mode === "replace") {
+    if (targetClassId) {
+      all = all.filter((s) => !(s.institution_id === institutionId && s.class_id === targetClassId));
+      all.push(...newStudents);
+    } else {
+      const affectedClassIds = new Set(newStudents.map((s) => s.class_id));
+      all = all.filter((s) => !(s.institution_id === institutionId && affectedClassIds.has(s.class_id)));
+      all.push(...newStudents);
+    }
+  } else {
+    // Mode merge: match by id, nisn, or nipd
+    for (const std of newStudents) {
+      const existingIdx = all.findIndex(
+        (s) =>
+          s.institution_id === institutionId &&
+          ((std.nisn && s.nisn === std.nisn) ||
+            (std.nipd && s.nipd && s.nipd === std.nipd) ||
+            s.id === std.id)
+      );
+      if (existingIdx >= 0) {
+        all[existingIdx] = { ...all[existingIdx], ...std };
+      } else {
+        all.push(std);
+      }
+    }
+  }
+
+  localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(all));
+
+  if (isFirebaseConfigured && db) {
+    try {
+      for (const std of newStudents) {
+        await setDoc(doc(db, "students", std.id), std);
+      }
+    } catch (e) {
+      console.warn("Firestore bulk write student error:", e);
+    }
+  }
 }
 
 // ==========================================
