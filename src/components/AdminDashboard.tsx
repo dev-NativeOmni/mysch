@@ -510,7 +510,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleShareResetPinWA = () => {
     if (!targetUserForReset) return;
-    const msg = `Halo ${targetUserForReset.name}, akun My School ID Anda di ${activeInstitution.name} telah direset.\n\n*Token Lembaga:* ${activeInstitution.token_lembaga}\n*NIP / ID:* ${targetUserForReset.nip}\n*PIN Baru:* ${newPinValue}\n\nSilakan masuk melalui: https://myschoolid.web.app`;
+    const msg = `Halo ${targetUserForReset.name}, akun My School ID Anda di ${activeInstitution.name} telah direset.\n\n*Kode Sekolah:* ${activeInstitution.token_lembaga}\n*PIN Baru:* ${newPinValue}\n\nCara masuk: buka https://myschoolid.web.app, ketik Kode Sekolah, pilih nama Anda, lalu masukkan PIN.`;
     window.open(`https://wa.me/${targetUserForReset.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
@@ -741,7 +741,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
               )}
               {isSuperAdmin && (
                 <label
-                  className="absolute inset-0 bg-black/60 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition rounded-2xl text-[9px] font-bold"
+                  className="absolute inset-0 bg-black/60 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition rounded-2xl text-xs font-bold"
                   title="Klik untuk ubah logo sekolah aktif"
                 >
                   <Camera className="w-4 h-4 mb-0.5" />
@@ -786,7 +786,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
           {/* Token Lembaga Card */}
           <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex items-center gap-3">
             <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">
                 TOKEN LEMBAGA GURU:
               </p>
               <div className="flex items-center gap-1.5">
@@ -963,7 +963,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                 >
                   <div className="bg-slate-50 px-3.5 py-2.5 border-b border-slate-200 flex items-center justify-between">
                     <span className="font-extrabold text-xs text-slate-800">{day}</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
                       {daySchedules.length} Sesi
                     </span>
                   </div>
@@ -971,7 +971,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                   <div className="p-2 space-y-2 flex-1 min-h-[140px] bg-slate-50/40">
                     {daySchedules.length === 0 ? (
                       <div className="h-full flex items-center justify-center p-4 text-center">
-                        <p className="text-[11px] text-slate-400 italic">Tidak ada jadwal</p>
+                        <p className="text-xs text-slate-400 italic">Tidak ada jadwal</p>
                       </div>
                     ) : (
                       daySchedules
@@ -991,7 +991,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                                   Kelas {cName}
                                 </span>
                                 <div className="flex items-center gap-1">
-                                  <span className="text-[10px] font-mono text-slate-500">
+                                  <span className="text-xs font-mono text-slate-500">
                                     {sch.start_time}-{sch.end_time}
                                   </span>
                                   {canManage && (
@@ -1008,10 +1008,10 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                               <p className="font-bold text-xs text-slate-900 leading-tight">
                                 {sName}
                               </p>
-                              <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                              <p className="text-xs text-slate-500 truncate mt-0.5">
                                 👤 {tName}
                               </p>
-                              <p className="text-[10px] text-slate-400 mt-1 font-mono">
+                              <p className="text-xs text-slate-400 mt-1 font-mono">
                                 Jam Ke: {sch.start_period} - {sch.end_period}
                               </p>
                             </div>
@@ -1063,7 +1063,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-lg font-black text-slate-900">{cls.name}</span>
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">
                           Tingkat {cls.grade_level}
                         </span>
                       </div>
@@ -1149,7 +1149,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-700">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-xs">
                   <tr>
                     <th className="py-3 px-4">Kode Mapel</th>
                     <th className="py-3 px-4">Nama Mata Pelajaran</th>
@@ -1178,7 +1178,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                         </td>
                         <td className="py-3.5 px-4">
                           <span
-                            className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                               sub.category === "Wajib"
                                 ? "bg-blue-50 text-blue-700 border border-blue-200"
                                 : sub.category === "Pilihan"
@@ -1195,14 +1195,14 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                               {assignedTeachers.map((at) => (
                                 <span
                                   key={at.id}
-                                  className="text-[11px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium"
+                                  className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium"
                                 >
                                   {at.name}
                                 </span>
                               ))}
                             </div>
                           ) : (
-                            <span className="text-[11px] text-slate-400 italic">
+                            <span className="text-xs text-slate-400 italic">
                               Belum ada guru yang ditugaskan
                             </span>
                           )}
@@ -1264,7 +1264,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-700">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-xs">
                   <tr>
                     <th className="py-3 px-4">Nama Guru</th>
                     <th className="py-3 px-4">NIP / ID</th>
@@ -1291,7 +1291,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                             </div>
                             <div>
                               <p className="font-bold text-slate-900">{t.name}</p>
-                              <p className="text-[10px] text-slate-400">{t.phone || "No WA belum diisi"}</p>
+                              <p className="text-xs text-slate-400">{t.phone || "No WA belum diisi"}</p>
                             </div>
                           </div>
                         </td>
@@ -1302,13 +1302,13 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                               assignedSubjectNames.map((sn, idx) => (
                                 <span
                                   key={idx}
-                                  className="text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-md"
+                                  className="text-xs font-bold bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-md"
                                 >
                                   {sn}
                                 </span>
                               ))
                             ) : (
-                              <span className="text-[11px] text-slate-600">
+                              <span className="text-xs text-slate-600">
                                 {t.subject_name || "Guru Umum"}
                               </span>
                             )}
@@ -1318,7 +1318,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                           {teacherSchedules.length * 2} Jam Pelajaran
                         </td>
                         <td className="py-3 px-4">
-                          <span className="text-[11px] font-mono font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                          <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
                             PIN: {t.pin}
                           </span>
                         </td>
@@ -1327,7 +1327,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                             <div className="flex items-center justify-end gap-1.5">
                               <button
                                 onClick={() => handleOpenResetPin(t)}
-                                className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[11px] font-bold flex items-center gap-1 transition"
+                                className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold flex items-center gap-1 transition"
                                 title="Reset Password / PIN Guru"
                               >
                                 <Key className="w-3 h-3" /> Reset PIN
@@ -1467,7 +1467,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                   >
                     <span>{day}</span>
                     {isToday && (
-                      <span className={`text-[10px] px-1 py-0.2 rounded-full font-extrabold ${isSelected ? "bg-white text-teal-800" : "bg-teal-100 text-teal-800"}`}>
+                      <span className={`text-xs px-1 py-0.2 rounded-full font-extrabold ${isSelected ? "bg-white text-teal-800" : "bg-teal-100 text-teal-800"}`}>
                         Hari Ini
                       </span>
                     )}
@@ -1490,35 +1490,35 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
             {/* 3. Kartu Statistik Kepatuhan Supervisi */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
                   Total Jadwal KBM ({monitorDay === "semua" ? "Mingguan" : monitorDay})
                 </span>
                 <p className="text-2xl font-black text-slate-900 mt-1">{totalSesi}</p>
-                <p className="text-[11px] text-slate-500">Sesi pelajaran terdaftar</p>
+                <p className="text-xs text-slate-500">Sesi pelajaran terdaftar</p>
               </div>
 
               <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200">
-                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">
                   Jurnal Lengkap
                 </span>
                 <p className="text-2xl font-black text-emerald-950 mt-1">{totalFilled}</p>
-                <p className="text-[11px] text-emerald-700">Sudah diisi & diverifikasi</p>
+                <p className="text-xs text-emerald-700">Sudah diisi & diverifikasi</p>
               </div>
 
               <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200">
-                <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">
+                <span className="text-xs font-bold text-amber-800 uppercase tracking-wider block">
                   Belum Diisi
                 </span>
                 <p className="text-2xl font-black text-amber-950 mt-1">{totalUnfilled}</p>
-                <p className="text-[11px] text-amber-700 font-semibold">Perlu diingatkan via WA</p>
+                <p className="text-xs text-amber-700 font-semibold">Perlu diingatkan via WA</p>
               </div>
 
               <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200">
-                <span className="text-[10px] font-bold text-teal-800 uppercase tracking-wider block">
+                <span className="text-xs font-bold text-teal-800 uppercase tracking-wider block">
                   Kepatuhan Mengajar
                 </span>
                 <p className="text-2xl font-black text-teal-950 mt-1">{compliancePercent}%</p>
-                <p className="text-[11px] text-teal-700">Tingkat kedisiplinan guru</p>
+                <p className="text-xs text-teal-700">Tingkat kedisiplinan guru</p>
               </div>
             </div>
 
@@ -1593,11 +1593,11 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-bold text-sm text-slate-900">{tName}</span>
-                              <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                              <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
                                 NIP: {teacher?.nip || "-"}
                               </span>
                               {teacher?.phone && (
-                                <span className="text-[11px] text-slate-500 font-mono flex items-center gap-0.5">
+                                <span className="text-xs text-slate-500 font-mono flex items-center gap-0.5">
                                   <Phone className="w-3 h-3 text-slate-400" /> {teacher.phone}
                                 </span>
                               )}
@@ -1680,7 +1680,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                         <h3 className="text-base font-black text-slate-900 leading-tight">
                           Detail Jurnal Mengajar
                         </h3>
-                        <p className="text-[11px] text-slate-500">
+                        <p className="text-xs text-slate-500">
                           {inspectingJournal.schedule.day_of_week} • Jam Ke {inspectingJournal.schedule.start_period}-{inspectingJournal.schedule.end_period} ({inspectingJournal.schedule.start_time} WIB)
                         </p>
                       </div>
@@ -1696,13 +1696,13 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                   <div className="space-y-3 text-xs">
                     <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200">
                       <div>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase block">Guru Pengampu</span>
+                        <span className="text-xs text-slate-400 font-bold uppercase block">Guru Pengampu</span>
                         <span className="font-bold text-slate-900">
                           {getTeacherName(inspectingJournal.schedule.teacher_id)}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase block">Kelas & Mapel</span>
+                        <span className="text-xs text-slate-400 font-bold uppercase block">Kelas & Mapel</span>
                         <span className="font-bold text-slate-900">
                           Kelas {getClassName(inspectingJournal.schedule.class_id)} • {getSubjectName(inspectingJournal.schedule.subject_id)}
                         </span>
@@ -1710,49 +1710,49 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                     </div>
 
                     <div>
-                      <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Materi Pokok / Bahasan</span>
+                      <span className="text-xs text-slate-400 font-bold uppercase block mb-1">Materi Pokok / Bahasan</span>
                       <div className="p-3 bg-white border border-slate-200 rounded-xl font-medium text-slate-800">
                         {inspectingJournal.journal.topic_materials || "Tidak ada materi terlampir."}
                       </div>
                     </div>
 
                     <div>
-                      <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Aktivitas & Tujuan Pembelajaran</span>
+                      <span className="text-xs text-slate-400 font-bold uppercase block mb-1">Aktivitas & Tujuan Pembelajaran</span>
                       <div className="p-3 bg-white border border-slate-200 rounded-xl text-slate-700 leading-relaxed">
                         {inspectingJournal.journal.learning_activities || inspectingJournal.journal.learning_objective || "-"}
                       </div>
                     </div>
 
                     <div>
-                      <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Rincian Kehadiran Siswa</span>
+                      <span className="text-xs text-slate-400 font-bold uppercase block mb-1">Rincian Kehadiran Siswa</span>
                       <div className="grid grid-cols-4 gap-2 text-center">
                         <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-200">
                           <p className="font-black text-base text-emerald-800">{inspectingJournal.journal.student_present_count}</p>
-                          <p className="text-[10px] font-bold text-emerald-600">Hadir (H)</p>
-                        </div>
-                        <div className="p-2 rounded-xl bg-blue-50 border border-blue-200">
-                          <p className="font-black text-base text-blue-800">{inspectingJournal.journal.student_sick_count || 0}</p>
-                          <p className="text-[10px] font-bold text-blue-600">Sakit (S)</p>
+                          <p className="text-xs font-bold text-emerald-600">Hadir (H)</p>
                         </div>
                         <div className="p-2 rounded-xl bg-amber-50 border border-amber-200">
-                          <p className="font-black text-base text-amber-800">{inspectingJournal.journal.student_permit_count || 0}</p>
-                          <p className="text-[10px] font-bold text-amber-600">Izin (I)</p>
+                          <p className="font-black text-base text-amber-800">{inspectingJournal.journal.student_sick_count || 0}</p>
+                          <p className="text-xs font-bold text-amber-600">Sakit (S)</p>
+                        </div>
+                        <div className="p-2 rounded-xl bg-blue-50 border border-blue-200">
+                          <p className="font-black text-base text-blue-800">{inspectingJournal.journal.student_permit_count || 0}</p>
+                          <p className="text-xs font-bold text-blue-600">Izin (I)</p>
                         </div>
                         <div className="p-2 rounded-xl bg-rose-50 border border-rose-200">
                           <p className="font-black text-base text-rose-800">{inspectingJournal.journal.student_absent_count || 0}</p>
-                          <p className="text-[10px] font-bold text-rose-600">Alpa (A)</p>
+                          <p className="text-xs font-bold text-rose-600">Alpa (A)</p>
                         </div>
                       </div>
                     </div>
 
                     <div>
-                      <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Catatan Kejadian / Tindak Lanjut Guru</span>
+                      <span className="text-xs text-slate-400 font-bold uppercase block mb-1">Catatan Kejadian / Tindak Lanjut Guru</span>
                       <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 italic">
                         {inspectingJournal.journal.teacher_notes || "Tidak ada catatan khusus kejadian kelas."}
                       </div>
                     </div>
 
-                    <div className="text-[11px] text-slate-400 text-right">
+                    <div className="text-xs text-slate-400 text-right">
                       Dikirim pada: {new Date(inspectingJournal.journal.submitted_at).toLocaleString("id-ID")}
                     </div>
                   </div>
@@ -1843,11 +1843,11 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                         </label>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                           {inst.education_level}
                         </span>
                         {isCurrent && (
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">
+                          <span className="text-xs font-black px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">
                             Aktif
                           </span>
                         )}
@@ -1860,7 +1860,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                     </div>
 
                     <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                      <p className="text-[10px] text-slate-400 font-bold uppercase">Token Guru:</p>
+                      <p className="text-xs text-slate-400 font-bold uppercase">Token Guru:</p>
                       <p className="font-mono text-sm font-black text-teal-900 tracking-wider">
                         {inst.token_lembaga}
                       </p>
@@ -2071,7 +2071,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
               </div>
 
               {conflictWarning && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[11px] font-bold">
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold">
                   {conflictWarning}
                 </div>
               )}
@@ -2260,7 +2260,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
             {/* Tabel Siswa */}
             <div className="flex-1 overflow-y-auto border border-slate-200 rounded-2xl">
               <table className="w-full text-left text-xs text-slate-700">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px] sticky top-0">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-xs sticky top-0">
                   <tr>
                     <th className="py-2.5 px-3">No</th>
                     <th className="py-2.5 px-3">NISN</th>
@@ -2277,7 +2277,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                       <td className="py-2 px-3 font-bold text-slate-900">{s.full_name}</td>
                       <td className="py-2 px-3">
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                             s.gender === "L" ? "bg-blue-100 text-blue-800" : "bg-pink-100 text-pink-800"
                           }`}
                         >
@@ -2475,7 +2475,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                         type="button"
                         key={s.id}
                         onClick={() => toggleSubjectForTeacher(s.id)}
-                        className={`p-2 rounded-xl text-left border flex items-center justify-between text-[11px] transition cursor-pointer ${
+                        className={`p-2 rounded-xl text-left border flex items-center justify-between text-xs transition cursor-pointer ${
                           isSelected
                             ? "bg-teal-50 border-teal-500 text-teal-900 font-bold"
                             : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
@@ -2487,7 +2487,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                     );
                   })}
                   {subjects.length === 0 && (
-                    <p className="text-[11px] text-slate-400 italic col-span-2">
+                    <p className="text-xs text-slate-400 italic col-span-2">
                       Belum ada mata pelajaran terdaftar di lembaga ini.
                     </p>
                   )}
@@ -2495,7 +2495,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
               </div>
 
               {!editingTeacher && (
-                <p className="text-[11px] text-slate-400">
+                <p className="text-xs text-slate-400">
                   PIN masuk default guru baru adalah <strong>123456</strong>. Guru dapat mengubahnya nanti atau admin dapat meresetnya jika lupa password.
                 </p>
               )}
@@ -2647,7 +2647,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                 <h3 className="text-base font-bold text-slate-900">
                   {editingInst ? "Edit Lembaga & Token Akses" : "Daftarkan Lembaga Baru"}
                 </h3>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-xs text-slate-500">
                   {editingInst
                     ? "Ubah Token Lembaga atau data identitas sekolah secara fleksibel."
                     : "Tambahkan cabang sekolah baru di bawah naungan yayasan Anda."}
@@ -2684,7 +2684,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                   className="w-full p-2.5 rounded-xl border border-slate-300 font-mono uppercase font-black text-teal-900 text-sm tracking-wider"
                   required
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="text-xs text-slate-500 mt-1">
                   Token ini dimasukkan guru saat login. Anda dapat mengubahnya kapan saja agar fleksibel menyesuaikan (misal: <strong>SMKPAN5</strong>, <strong>SMKPANCASILA5</strong>, dll).
                 </p>
               </div>
@@ -2759,7 +2759,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                         </button>
                       )}
                     </div>
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-xs text-slate-400">
                       Format: JPG, PNG, atau WebP. Gambar disesuaikan secara proporsional.
                     </p>
                   </div>

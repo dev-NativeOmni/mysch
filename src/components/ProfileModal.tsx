@@ -253,7 +253,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </button>
                 )}
               </div>
-              <p className="text-[10px] text-slate-400 pt-0.5">
+              <p className="text-xs text-slate-400 pt-0.5">
                 Format: JPG, PNG, atau WebP (otomatis dioptimalkan).
               </p>
             </div>
@@ -262,14 +262,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           {/* 2. Informasi Ringkas Akun */}
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">Peran Pengguna</span>
+              <span className="text-xs text-slate-400 font-bold uppercase block">Peran Pengguna</span>
               <span className="font-semibold text-slate-800 flex items-center gap-1 mt-0.5">
                 <Shield className="w-3.5 h-3.5 text-teal-600" />
                 {getRoleLabel(user.role)}
               </span>
             </div>
             <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">Lembaga Terdaftar</span>
+              <span className="text-xs text-slate-400 font-bold uppercase block">Lembaga Terdaftar</span>
               <span className="font-semibold text-slate-800 truncate block mt-0.5" title={activeInstitution.name}>
                 {activeInstitution.name}
               </span>
@@ -288,13 +288,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowPin(!showPin)}
-                className="text-[11px] font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1 cursor-pointer"
+                className="text-xs font-semibold text-teal-700 hover:text-teal-800 flex items-center gap-1 cursor-pointer"
               >
                 {showPin ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                 <span>{showPin ? "Sembunyikan" : "Tampilkan"}</span>
               </button>
             </div>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-xs text-slate-500">
               Kosongkan bagian ini jika Anda tidak ingin mengubah PIN masuk akun.
             </p>
 

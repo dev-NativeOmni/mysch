@@ -139,7 +139,7 @@ export default function Home() {
           </span>
           <button
             onClick={() => setAdminViewMode(adminViewMode === "admin" ? "teacher" : "admin")}
-            className={`px-3 py-1 rounded-lg text-white font-bold transition flex items-center gap-1.5 cursor-pointer text-[11px] ${
+            className={`px-3 py-1 rounded-lg text-white font-bold transition flex items-center gap-1.5 cursor-pointer text-xs ${
               currentUser.role === "HEADMASTER"
                 ? "bg-purple-800 hover:bg-purple-900"
                 : "bg-amber-800 hover:bg-amber-900"

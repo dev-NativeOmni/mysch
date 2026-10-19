@@ -11,16 +11,21 @@ import {
 } from "@/lib/storage";
 import {
   School,
-  Lock,
-  Phone,
   CheckCircle2,
   AlertCircle,
-  QrCode,
   ArrowRight,
   ShieldCheck,
   Eye,
   EyeOff,
 } from "lucide-react";
+
+// Mengingat nama terakhir yang dipilih di HP ini agar guru tidak perlu mencari ulang
+const LAST_USER_KEY = "jg_last_user_id";
+
+const ROLE_SUFFIX: Partial<Record<User["role"], string>> = {
+  HEADMASTER: " (Kepala Sekolah)",
+  ADMIN: " (Admin Kurikulum)",
+};
 
 interface LoginViewProps {
   initialToken?: string;
@@ -36,7 +41,9 @@ export const LoginView: React.FC<LoginViewProps> = ({
   const [isCheckingToken, setIsCheckingToken] = useState(false);
   const [tokenError, setTokenError] = useState("");
 
-  const [nipInput, setNipInput] = useState("");
+  // Daftar nama disimpan bersama ID sekolahnya, agar daftar lama tidak terpakai saat kode sekolah berganti
+  const [loadedUsers, setLoadedUsers] = useState<{ institutionId: string; users: User[] } | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -50,7 +57,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showQrModal, setShowQrModal] = useState(false);
 
   // Validasi Token Lembaga saat input berubah (debounced)
   useEffect(() => {
@@ -70,7 +76,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
           setTokenError("");
         } else {
           setVerifiedInstitution(null);
-          setTokenError("Token Lembaga tidak ditemukan. Periksa kembali atau tanyakan ke admin sekolah Anda.");
+          setTokenError("Kode Sekolah tidak ditemukan. Periksa kembali atau tanyakan ke admin sekolah.");
         }
       } catch (err) {
         console.error(err);
@@ -82,79 +88,70 @@ export const LoginView: React.FC<LoginViewProps> = ({
     return () => clearTimeout(timer);
   }, [tokenInput]);
 
+  // Setelah sekolah terverifikasi, muat daftar nama guru untuk dipilih
+  useEffect(() => {
+    if (!verifiedInstitution) return;
+
+    let cancelled = false;
+    getUsers(verifiedInstitution.id)
+      .then((list) => {
+        if (cancelled) return;
+        const selectable = list
+          .filter((u) => u.role !== "SUPER_ADMIN" && u.is_active !== false)
+          .sort((a, b) => a.name.localeCompare(b.name, "id"));
+        setLoadedUsers({ institutionId: verifiedInstitution.id, users: selectable });
+
+        let lastUserId = "";
+        try {
+          lastUserId = localStorage.getItem(LAST_USER_KEY) || "";
+        } catch {
+          // localStorage bisa diblokir (mode privat)
+        }
+        setSelectedUserId(selectable.some((u) => u.id === lastUserId) ? lastUserId : "");
+      })
+      .catch((err) => console.error(err));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [verifiedInstitution]);
+
+  const isLoadingUsers = Boolean(verifiedInstitution) && loadedUsers?.institutionId !== verifiedInstitution?.id;
+  const institutionUsers =
+    verifiedInstitution && loadedUsers?.institutionId === verifiedInstitution.id ? loadedUsers.users : [];
+
   // Submit Login Guru / Admin Lembaga
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMsg("");
 
     if (!verifiedInstitution) {
-      setErrorMsg("Mohon masukkan Token Lembaga yang valid terlebih dahulu.");
+      setErrorMsg("Mohon masukkan Kode Sekolah yang benar terlebih dahulu.");
       return;
     }
-    if (!nipInput.trim()) {
-      setErrorMsg("Mohon masukkan NIP atau Nomor WhatsApp Anda.");
+    if (!selectedUserId) {
+      setErrorMsg("Mohon pilih nama Anda terlebih dahulu.");
       return;
     }
     if (!pinInput.trim()) {
-      setErrorMsg("Mohon masukkan PIN masuk Anda.");
+      setErrorMsg("Mohon masukkan PIN Anda.");
       return;
     }
 
     setLoading(true);
     try {
-      const users = await getUsers(verifiedInstitution.id);
-      const cleanInput = nipInput.trim().toUpperCase();
-      const user = users.find((u) => {
-        const uNip = u.nip.toUpperCase();
-        const teacherLetter = u.id.replace("user-", "").toUpperCase();
+      const user = institutionUsers.find((u) => u.id === selectedUserId);
 
-        // 1. Cocok dengan NIP / Username langsung (misal: "21", "1", "J9", "A", dll.)
-        if (uNip === cleanInput) return true;
-
-        // Khusus Kepala Sekolah: cocok jika ketik "A", "KEPALA", "KS", atau "KEPALASEKOLAH"
-        if (
-          u.role === "HEADMASTER" &&
-          (cleanInput === "KEPALA" || cleanInput === "KS" || cleanInput === "KEPALASEKOLAH")
-        ) {
-          return true;
-        }
-
-        // 2. Cocok dengan nomor telepon / WA
-        if (u.phone === nipInput.trim()) return true;
-
-        // 3. Cocok dengan inisial guru huruf (misal: "B", "O", "H", "S", "Z")
-        if (teacherLetter === cleanInput) return true;
-
-        // 4. Cocok dengan nomor mata pelajaran yang diampu (misal: "1", "2", "21")
-        if (
-          u.subject_ids &&
-          u.subject_ids.some((sId) => {
-            const numStr = sId.replace("sub-", "");
-            const numInt = parseInt(numStr, 10).toString();
-            return numStr === cleanInput || numInt === cleanInput;
-          })
-        ) {
-          return true;
-        }
-
-        // 5. Cocok dengan kode jadwal di tabel (misal: "B21", "O1", "Q12", "M7", "T3")
-        if (
-          u.subject_ids &&
-          u.subject_ids.some((sId) => {
-            const numInt = parseInt(sId.replace("sub-", ""), 10);
-            return cleanInput === `${teacherLetter}${numInt}`;
-          })
-        ) {
-          return true;
-        }
-
-        return false;
-      });
-
-      if (!user || user.pin !== pinInput) {
-        setErrorMsg("Kredensial tidak cocok. Pastikan Nomor Mapel / Kode Guru dan PIN benar.");
+      if (!user || user.pin !== pinInput.trim()) {
+        setErrorMsg("PIN salah. Coba lagi, atau hubungi admin sekolah jika lupa PIN.");
         setLoading(false);
         return;
+      }
+
+      try {
+        localStorage.setItem(LAST_USER_KEY, user.id);
+      } catch {
+        // abaikan jika localStorage tidak tersedia
       }
 
       if (rememberMe) {
@@ -228,7 +225,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
               setShowSuperAdminModal(true);
             }}
             className="w-14 h-14 mx-auto rounded-2xl bg-teal-600 hover:bg-teal-700 active:scale-95 text-white flex items-center justify-center shadow-lg shadow-teal-600/20 mb-3 transition cursor-pointer group"
-            title="Akses Super Admin (Klik Logo)"
+            aria-label="Logo My School ID"
           >
             <School className="w-8 h-8 group-hover:scale-110 transition" />
           </button>
@@ -243,130 +240,126 @@ export const LoginView: React.FC<LoginViewProps> = ({
         {/* Card Formulir Login */}
         <div className="mt-6 bg-white py-7 px-5 sm:px-8 rounded-3xl shadow-sm border border-slate-200">
           <form onSubmit={handleLogin} className="space-y-4">
-            {/* Input 1: Token Lembaga */}
+            {/* Langkah 1: Kode Sekolah */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
-                  1. Token Lembaga / Kode Sekolah
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowQrModal(true)}
-                  className="text-xs font-medium text-teal-600 hover:text-teal-700 flex items-center gap-1 cursor-pointer"
-                >
-                  <QrCode className="w-3.5 h-3.5" /> Scan QR
-                </button>
-              </div>
+              <label htmlFor="school-code" className="block text-sm font-bold text-slate-800 mb-1.5">
+                1. Kode Sekolah
+              </label>
+              <input
+                id="school-code"
+                type="text"
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value.toUpperCase())}
+                placeholder="Ketik kode dari admin sekolah"
+                autoCapitalize="characters"
+                autoComplete="off"
+                className="w-full px-3.5 py-3 text-base rounded-xl border border-slate-300 uppercase font-bold text-slate-800 placeholder:text-slate-400 placeholder:font-normal placeholder:normal-case focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                required
+              />
 
-              <div className="relative">
-                <input
-                  type="text"
-                  value={tokenInput}
-                  onChange={(e) => setTokenInput(e.target.value.toUpperCase())}
-                  placeholder="Masukkan Token Lembaga..."
-                  className="w-full px-3.5 py-2.5 text-base rounded-xl border border-slate-300 font-mono uppercase font-bold text-slate-800 placeholder:text-slate-400 placeholder:font-normal placeholder:normal-case focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  required
-                />
-              </div>
-
-              {/* Status Validasi Token Lembaga */}
+              {/* Status Validasi Kode Sekolah */}
               {isCheckingToken && (
-                <p className="mt-1.5 text-xs text-slate-500 flex items-center gap-1">
+                <p className="mt-1.5 text-sm text-slate-500 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-teal-500 animate-ping" />
-                  Memeriksa lembaga...
+                  Memeriksa kode...
                 </p>
               )}
 
               {tokenError && (
-                <p className="mt-1.5 text-xs text-rose-600 flex items-center gap-1 font-medium">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <p className="mt-1.5 text-sm text-rose-600 flex items-start gap-1 font-medium">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                   {tokenError}
                 </p>
               )}
 
               {verifiedInstitution && !isCheckingToken && (
-                <div className="mt-2 p-2.5 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-between animate-fadeIn">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                    <div>
-                      <p className="text-xs font-bold text-teal-950">
-                        {verifiedInstitution.name}
-                      </p>
-                      <p className="text-[10px] text-teal-700">
-                        Jenjang: {verifiedInstitution.education_level} • NPSN: {verifiedInstitution.npsn || "-"}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-200/70 text-teal-900">
-                    Terverifikasi
-                  </span>
+                <div className="mt-2 p-3 rounded-xl bg-teal-50 border border-teal-200 flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-teal-600 shrink-0" />
+                  <p className="text-sm font-bold text-teal-950">{verifiedInstitution.name}</p>
                 </div>
               )}
             </div>
 
-            {/* Input 2: Nomor Mapel / Kode Guru */}
+            {/* Langkah 2: Pilih Nama */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
-                2. Nomor Mapel / Kode Guru (Contoh: 21, 1, atau B21)
+              <label htmlFor="user-select" className="block text-sm font-bold text-slate-800 mb-1.5">
+                2. Nama Anda
+              </label>
+              <select
+                id="user-select"
+                value={selectedUserId}
+                onChange={(e) => {
+                  setSelectedUserId(e.target.value);
+                  setErrorMsg("");
+                }}
+                disabled={!verifiedInstitution || isLoadingUsers}
+                className="w-full px-3.5 py-3 text-base rounded-xl border border-slate-300 bg-white text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:bg-slate-100 disabled:text-slate-400"
+                required
+              >
+                <option value="">
+                  {!verifiedInstitution
+                    ? "Isi Kode Sekolah dulu"
+                    : isLoadingUsers
+                    ? "Memuat daftar nama..."
+                    : "— Pilih nama Anda —"}
+                </option>
+                {institutionUsers.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                    {ROLE_SUFFIX[u.role] || ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Langkah 3: PIN */}
+            <div>
+              <label htmlFor="pin-input" className="block text-sm font-bold text-slate-800 mb-1.5">
+                3. PIN <span className="font-normal text-slate-500">(6 angka)</span>
               </label>
               <div className="relative">
                 <input
-                  type="text"
-                  value={nipInput}
-                  onChange={(e) => setNipInput(e.target.value)}
-                  placeholder="Nomor Mapel atau Kode Guru..."
-                  className="w-full px-3.5 py-2.5 text-base rounded-xl border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Input 3: PIN 6 Digit */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
-                  3. PIN Masuk (6 Digit)
-                </label>
-                <span className="text-[11px] text-slate-400">PIN 6 Angka</span>
-              </div>
-              <div className="relative">
-                <input
+                  id="pin-input"
                   type={showPin ? "text" : "password"}
+                  inputMode="numeric"
+                  autoComplete="current-password"
                   maxLength={6}
                   value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value)}
+                  onChange={(e) => {
+                    setPinInput(e.target.value.replace(/\D/g, ""));
+                    setErrorMsg("");
+                  }}
                   placeholder="••••••"
-                  className="w-full px-3.5 py-2.5 text-base rounded-xl border border-slate-300 text-slate-800 tracking-widest font-mono placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  className="w-full pl-3.5 pr-12 py-3 text-lg rounded-xl border border-slate-300 text-slate-800 tracking-[0.4em] font-mono placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPin(!showPin)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  aria-label={showPin ? "Sembunyikan PIN" : "Tampilkan PIN"}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
-                  {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
             </div>
 
             {/* Checkbox Ingat Saya */}
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 text-teal-600 rounded-md border-slate-300 focus:ring-teal-500"
-                />
-                <span className="text-xs text-slate-600 font-medium">
-                  Ingat sekolah & akun saya di HP ini
-                </span>
-              </label>
-            </div>
+            <label className="flex items-center gap-2.5 cursor-pointer select-none pt-1">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-5 h-5 text-teal-600 rounded-md border-slate-300 focus:ring-teal-500"
+              />
+              <span className="text-sm text-slate-700 font-medium">
+                Tetap masuk di HP ini
+              </span>
+            </label>
 
             {/* Error Message */}
             {errorMsg && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2">
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm font-medium flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{errorMsg}</span>
               </div>
@@ -376,14 +369,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 py-3 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-bold text-base shadow-md shadow-teal-600/20 transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="w-full mt-2 py-3.5 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-bold text-base shadow-md shadow-teal-600/20 transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {loading ? (
                 <>Memproses...</>
               ) : (
                 <>
-                  <span>Masuk ke Jurnal</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>Masuk</span>
+                  <ArrowRight className="w-5 h-5" />
                 </>
               )}
             </button>
@@ -391,8 +384,8 @@ export const LoginView: React.FC<LoginViewProps> = ({
         </div>
 
         {/* Footer Catatan Ramah Guru */}
-        <p className="mt-4 text-center text-xs text-slate-500">
-          Belum memiliki Token Lembaga atau lupa PIN? Hubungi Administrator Sekolah Anda.
+        <p className="mt-4 text-center text-sm text-slate-500">
+          Belum punya Kode Sekolah, nama tidak ada, atau lupa PIN? Hubungi admin sekolah Anda.
         </p>
       </div>
 
@@ -409,7 +402,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                   <h3 className="text-base font-extrabold text-slate-900 leading-tight">
                     Portal Super Admin
                   </h3>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-xs text-slate-500">
                     Akses Pusat Pengelola Seluruh Lembaga
                   </p>
                 </div>
@@ -428,7 +421,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
             <form onSubmit={handleSuperAdminLogin} className="space-y-3.5 text-xs">
               <div>
-                <label className="block font-bold text-slate-700 uppercase tracking-wide text-[10px] mb-1">
+                <label className="block font-bold text-slate-700 uppercase tracking-wide text-xs mb-1">
                   Username Super Admin
                 </label>
                 <input
@@ -443,7 +436,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 uppercase tracking-wide text-[10px] mb-1">
+                <label className="block font-bold text-slate-700 uppercase tracking-wide text-xs mb-1">
                   Password Super Admin
                 </label>
                 <div className="relative">
@@ -480,38 +473,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 <span>Masuk sebagai Super Admin</span>
               </button>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Petunjuk Scan QR Code */}
-      {showQrModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-teal-100 text-teal-700 mx-auto flex items-center justify-center">
-              <QrCode className="w-6 h-6" />
-            </div>
-            <h3 className="text-base font-bold text-slate-900">
-              Scan QR Code Lembaga
-            </h3>
-            <p className="text-xs text-slate-600">
-              Arahkan kamera ke poster QR Code yang dibagikan oleh admin sekolah Anda untuk mengisi Token Lembaga otomatis.
-            </p>
-            <div className="p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
-              <div className="w-32 h-32 mx-auto bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-400">
-                <QrCode className="w-20 h-20 text-teal-600" />
-              </div>
-              <p className="mt-2 text-[11px] text-slate-500">
-                Hubungi operator sekolah jika Anda belum memiliki poster QR Code.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowQrModal(false)}
-              className="w-full py-2.5 rounded-xl bg-teal-600 text-white text-xs font-bold cursor-pointer"
-            >
-              Tutup & Masukkan Token Manual
-            </button>
           </div>
         </div>
       )}

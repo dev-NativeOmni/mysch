@@ -3,6 +3,13 @@
 import React, { useState, useEffect } from "react";
 import { User, Institution, Schedule, JournalEntry, ClassRoom, Subject } from "@/lib/types";
 import { getSchedules, getJournals, getClasses, getSubjects } from "@/lib/storage";
+import {
+  getLocalDateString,
+  getIndoDayName,
+  getCurrentTimeString,
+  getScheduleTiming,
+  sortSchedulesByTime,
+} from "@/lib/dateUtils";
 import { JournalWizardModal } from "./JournalWizardModal";
 import { JournalHistoryModal } from "./JournalHistoryModal";
 import { ProfileModal } from "./ProfileModal";
@@ -11,14 +18,11 @@ import {
   Clock,
   BookOpen,
   CheckCircle2,
-  AlertCircle,
   PenTool,
   History,
-  Sparkles,
-  Users,
   ChevronRight,
-  School,
   User as UserIcon,
+  PartyPopper,
 } from "lucide-react";
 
 interface TeacherDashboardProps {
@@ -37,6 +41,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const [classes, setClasses] = useState<ClassRoom[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Jam sekarang, diperbarui tiap menit agar status "Sedang Berlangsung" ikut berganti
+  const [now, setNow] = useState(() => new Date());
 
   // Modal Wizard State
   const [activeWizardSchedule, setActiveWizardSchedule] = useState<Schedule | null>(null);
@@ -70,22 +77,49 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id, activeInstitution.id]);
 
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Helper name lookups
-  const getClassName = (classId: string) =>
-    classes.find((c) => c.id === classId)?.name || "Kelas VIII-A";
+  const getClassName = (classId: string) => classes.find((c) => c.id === classId)?.name || "-";
   const getSubjectName = (subjectId: string) =>
     subjects.find((s) => s.id === subjectId)?.name || user.subject_name || "Mata Pelajaran";
 
-  // Check if a schedule is already filled today
-  const todayStr = new Date().toISOString().split("T")[0];
+  // Hanya jadwal untuk HARI INI, urut dari jam paling pagi
+  const todayStr = getLocalDateString(now);
+  const todayName = getIndoDayName(now);
+  const nowTime = getCurrentTimeString(now);
+  const todaySchedules = sortSchedulesByTime(schedules.filter((s) => s.day_of_week === todayName));
+
   const getJournalForSchedule = (scheduleId: string) =>
     journals.find((j) => j.schedule_id === scheduleId && j.entry_date === todayStr);
 
-  // Jadwal aktif saat ini (pilih yang belum diisi atau yang pertama)
+  // Pilih jadwal untuk kartu utama:
+  // 1) yang sedang berlangsung & belum diisi, 2) yang sudah lewat tapi belum diisi,
+  // 3) yang sedang berlangsung (sudah diisi), 4) yang berikutnya belum diisi
+  const runningSchedule = todaySchedules.find((s) => getScheduleTiming(s, nowTime) === "running");
+  const runningUnfilled = todaySchedules.find(
+    (s) => getScheduleTiming(s, nowTime) === "running" && !getJournalForSchedule(s.id)
+  );
+  const pastUnfilled = todaySchedules.find(
+    (s) => getScheduleTiming(s, nowTime) === "past" && !getJournalForSchedule(s.id)
+  );
+  const nextUnfilled = todaySchedules.find(
+    (s) => getScheduleTiming(s, nowTime) === "upcoming" && !getJournalForSchedule(s.id)
+  );
   const activeSchedule =
-    schedules.find((s) => !getJournalForSchedule(s.id)) || schedules[0] || null;
+    runningUnfilled ||
+    pastUnfilled ||
+    runningSchedule ||
+    nextUnfilled ||
+    null;
+  const activeTiming = activeSchedule ? getScheduleTiming(activeSchedule, nowTime) : null;
+  const todayJournalOfActive = activeSchedule ? getJournalForSchedule(activeSchedule.id) : undefined;
 
-  const todayJournalOfActive = activeSchedule ? getJournalForSchedule(activeSchedule.id) : null;
+  const filledTodayCount = todaySchedules.filter((s) => getJournalForSchedule(s.id)).length;
+  const allFilled = todaySchedules.length > 0 && filledTodayCount === todaySchedules.length;
 
   // Format tanggal Indonesia
   const currentDateFormatted = new Intl.DateTimeFormat("id-ID", {
@@ -93,190 +127,213 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     day: "numeric",
     month: "long",
     year: "numeric",
-  }).format(new Date());
+  }).format(now);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8 space-y-6">
       {/* 1. Header Salam Guru */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-5 rounded-3xl border border-slate-200 shadow-2xs">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-teal-700">
+          <div className="flex items-center gap-2 text-sm font-semibold text-teal-700">
             <Calendar className="w-4 h-4" />
             <span>{currentDateFormatted}</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
             Selamat Bertugas, {user.name.split(",")[0]} 👋
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Lembaga: <span className="font-semibold text-slate-700">{activeInstitution.name}</span>
-          </p>
+          <p className="text-sm text-slate-500 mt-0.5">{activeInstitution.name}</p>
         </div>
 
         {/* Tombol Profil & Riwayat Jurnal */}
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
           <button
             onClick={() => setShowProfileModal(true)}
-            className="px-3.5 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-            title="Ganti Foto Profil & PIN"
+            className="px-4 py-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-sm font-bold flex items-center gap-1.5 transition cursor-pointer"
           >
             <UserIcon className="w-4 h-4" />
             <span>Profil & PIN</span>
           </button>
           <button
             onClick={() => setShowHistoryModal(true)}
-            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+            className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold flex items-center gap-1.5 transition cursor-pointer"
           >
             <History className="w-4 h-4 text-slate-600" />
-            <span>Riwayat ({journals.length})</span>
+            <span>Riwayat Jurnal</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Hero Card "Jadwal Mengajar Saat Ini" (Mobile Ergonomics) */}
-      {activeSchedule ? (
+      {/* 2. Kartu Utama */}
+      {loading ? (
+        <div className="bg-white p-8 rounded-3xl border border-slate-200 text-center text-sm text-slate-500">
+          Memuat jadwal hari ini...
+        </div>
+      ) : activeSchedule ? (
         <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-teal-700 to-teal-900 text-white p-6 shadow-xl shadow-teal-900/15">
           {/* Subtle background decoration */}
           <div className="absolute -right-6 -bottom-6 w-36 h-36 bg-white/5 rounded-full blur-xl pointer-events-none" />
 
           <div className="flex items-center justify-between gap-2 mb-3">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wide bg-emerald-400 text-teal-950 shadow-sm animate-pulse-subtle">
-              <span className="w-2 h-2 rounded-full bg-teal-950 animate-ping" />
-              SEDANG BERLANGSUNG
-            </span>
-
-            <span className="text-xs text-teal-200 font-medium">
-              Jam Ke {activeSchedule.start_period} - {activeSchedule.end_period}
-            </span>
+            {activeTiming === "running" ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-400 text-teal-950 shadow-sm animate-pulse-subtle">
+                <span className="w-2 h-2 rounded-full bg-teal-950 animate-ping" />
+                Sedang Berlangsung
+              </span>
+            ) : activeTiming === "past" ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-amber-300 text-amber-950 shadow-sm">
+                Sudah Selesai, Jurnal Belum Diisi
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-white/20 text-white">
+                Jadwal Berikutnya
+              </span>
+            )}
           </div>
 
           <div className="space-y-1 mb-5">
-            <p className="text-sm font-semibold text-teal-200">
+            <p className="text-base font-semibold text-teal-100">
               {getSubjectName(activeSchedule.subject_id)}
             </p>
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
               Kelas {getClassName(activeSchedule.class_id)}
             </h2>
-            <div className="flex items-center gap-4 text-xs text-teal-100 pt-1">
-              <span className="flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" /> {activeSchedule.start_time} - {activeSchedule.end_time} WIB
-              </span>
-              <span className="flex items-center gap-1">
-                <School className="w-3.5 h-3.5" /> Ruang {getClassName(activeSchedule.class_id)}
-              </span>
-            </div>
+            <p className="flex items-center gap-1.5 text-sm text-teal-100 pt-1">
+              <Clock className="w-4 h-4" /> Pukul {activeSchedule.start_time} - {activeSchedule.end_time}
+            </p>
           </div>
 
-          {/* Tombol Aksi Utama Hero */}
+          {/* Tombol Aksi Utama */}
           {todayJournalOfActive ? (
             <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-white/15">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-emerald-400 text-teal-950 flex items-center justify-center font-bold">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-emerald-400 text-teal-950 flex items-center justify-center shrink-0">
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-white">Jurnal Jam Ini Sudah Diisi</p>
-                  <p className="text-[11px] text-teal-200">
-                    Hadir: {todayJournalOfActive.student_present_count} siswa • Materi: {todayJournalOfActive.topic_materials}
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-white">Jurnal sudah diisi</p>
+                  <p className="text-sm text-teal-100 truncate">
+                    {todayJournalOfActive.student_present_count} siswa hadir • {todayJournalOfActive.topic_materials}
                   </p>
                 </div>
               </div>
 
               <button
                 onClick={() => setActiveWizardSchedule(activeSchedule)}
-                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-white text-teal-900 font-bold text-xs hover:bg-teal-50 transition cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white text-teal-900 font-bold text-sm hover:bg-teal-50 transition cursor-pointer"
               >
-                Ubah / Lengkapi
+                Lihat / Ubah
               </button>
             </div>
           ) : (
             <button
               onClick={() => setActiveWizardSchedule(activeSchedule)}
-              className="w-full py-3.5 px-5 rounded-2xl bg-white hover:bg-teal-50 active:bg-teal-100 text-teal-950 font-black text-sm sm:text-base shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-4 px-5 rounded-2xl bg-white hover:bg-teal-50 active:bg-teal-100 text-teal-950 font-black text-base shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <PenTool className="w-5 h-5 text-teal-700" />
-              <span>Mulai Isi Jurnal Sekarang (Presensi & Materi)</span>
+              <span>Isi Jurnal Sekarang</span>
             </button>
           )}
+        </div>
+      ) : allFilled ? (
+        <div className="bg-emerald-50 p-8 rounded-3xl border border-emerald-200 text-center space-y-2">
+          <PartyPopper className="w-10 h-10 text-emerald-600 mx-auto" />
+          <h3 className="text-base font-bold text-emerald-900">Semua jurnal hari ini sudah diisi</h3>
+          <p className="text-sm text-emerald-800">Terima kasih, Bapak/Ibu. Selamat beristirahat!</p>
         </div>
       ) : (
         <div className="bg-white p-8 rounded-3xl border border-slate-200 text-center space-y-2">
           <BookOpen className="w-10 h-10 text-slate-300 mx-auto" />
-          <h3 className="text-sm font-bold text-slate-700">Tidak Ada Jadwal Mengajar Aktif Hari Ini</h3>
-          <p className="text-xs text-slate-500">
-            Hubungi Wakasek Kurikulum jika jadwal mengajar Anda belum terdaftar.
+          <h3 className="text-base font-bold text-slate-700">Hari ini tidak ada jadwal mengajar</h3>
+          <p className="text-sm text-slate-500">
+            Jika menurut Anda ini keliru, hubungi Wakasek Kurikulum agar jadwal Anda didaftarkan.
           </p>
         </div>
       )}
 
-      {/* 3. Daftar Jadwal Mengajar Hari Ini (Timeline) */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-teal-600" /> Agenda Mengajar Hari Ini ({schedules.length} Sesi)
-          </h3>
-          <span className="text-xs text-slate-500">
-            {journals.filter((j) => j.entry_date === todayStr).length} dari {schedules.length} terisi
-          </span>
-        </div>
+      {/* 3. Daftar Jadwal Mengajar Hari Ini */}
+      {todaySchedules.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-teal-600" /> Jadwal Hari Ini
+            </h3>
+            <span className="text-sm text-slate-500">
+              {filledTodayCount} dari {todaySchedules.length} sudah diisi
+            </span>
+          </div>
 
-        <div className="space-y-2.5">
-          {schedules.map((sch, index) => {
-            const jrn = getJournalForSchedule(sch.id);
-            const isCompleted = Boolean(jrn);
+          <div className="space-y-2.5">
+            {todaySchedules.map((sch) => {
+              const jrn = getJournalForSchedule(sch.id);
+              const timing = getScheduleTiming(sch, nowTime);
 
-            return (
-              <div
-                key={sch.id}
-                onClick={() => setActiveWizardSchedule(sch)}
-                className={`p-4 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-3 ${
-                  isCompleted
-                    ? "bg-white border-slate-200 hover:border-teal-300"
-                    : "bg-amber-50/40 border-amber-200 hover:border-amber-300"
-                }`}
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
-                      isCompleted
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-amber-100 text-amber-800"
-                    }`}
-                  >
-                    {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : `Jam ${sch.start_period}`}
-                  </div>
+              let badge: { text: string; className: string };
+              if (jrn) {
+                badge = {
+                  text: `Sudah diisi • ${jrn.student_present_count} hadir`,
+                  className: "text-emerald-700 bg-emerald-50 border-emerald-200",
+                };
+              } else if (timing === "running") {
+                badge = { text: "Sedang berlangsung", className: "text-teal-700 bg-teal-50 border-teal-200" };
+              } else if (timing === "past") {
+                badge = { text: "Belum diisi", className: "text-amber-800 bg-amber-50 border-amber-200" };
+              } else {
+                badge = { text: "Nanti", className: "text-slate-600 bg-slate-50 border-slate-200" };
+              }
 
-                  <div className="truncate">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900 text-sm truncate">
+              return (
+                <button
+                  type="button"
+                  key={sch.id}
+                  onClick={() => setActiveWizardSchedule(sch)}
+                  className={`w-full text-left p-4 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-3 ${
+                    !jrn && timing === "past"
+                      ? "bg-amber-50/50 border-amber-200 hover:border-amber-300"
+                      : "bg-white border-slate-200 hover:border-teal-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div
+                      className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold shrink-0 ${
+                        jrn ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {jrn ? (
+                        <CheckCircle2 className="w-6 h-6" />
+                      ) : (
+                        <span className="text-sm">{sch.start_time}</span>
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-900 text-base truncate">
                         Kelas {getClassName(sch.class_id)}
-                      </span>
-                      <span className="text-[11px] text-slate-500 font-mono">
-                        {sch.start_time} - {sch.end_time}
+                      </p>
+                      <p className="text-sm text-slate-600 truncate">
+                        {getSubjectName(sch.subject_id)} • {sch.start_time} - {sch.end_time}
+                      </p>
+                      <span
+                        className={`mt-1 inline-flex sm:hidden text-xs font-bold px-2 py-0.5 rounded-full border ${badge.className}`}
+                      >
+                        {badge.text}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-600 truncate">
-                      {getSubjectName(sch.subject_id)}
-                    </p>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  {isCompleted && jrn ? (
-                    <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                      Selesai ({jrn.student_present_count} Hadir)
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span
+                      className={`hidden sm:inline-flex text-xs font-bold px-2.5 py-1 rounded-full border ${badge.className}`}
+                    >
+                      {badge.text}
                     </span>
-                  ) : (
-                    <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
-                      Belum Diisi
-                    </span>
-                  )}
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                </div>
-              </div>
-            );
-          })}
+                    <ChevronRight className="w-5 h-5 text-slate-400" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Modal Wizard Pengisian Jurnal */}
       {activeWizardSchedule && (
@@ -284,6 +341,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           isOpen={Boolean(activeWizardSchedule)}
           onClose={() => setActiveWizardSchedule(null)}
           schedule={activeWizardSchedule}
+          existingJournal={getJournalForSchedule(activeWizardSchedule.id)}
           user={user}
           activeInstitution={activeInstitution}
           onSaved={() => {
