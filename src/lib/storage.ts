@@ -79,7 +79,8 @@ function initLocalStorage() {
   if (!localStorage.getItem(STORAGE_KEYS.SCHEDULES)) {
     localStorage.setItem(STORAGE_KEYS.SCHEDULES, JSON.stringify(INITIAL_SCHEDULES));
   }
-  if (!localStorage.getItem(STORAGE_KEYS.JOURNALS)) {
+  const rawJournals = localStorage.getItem(STORAGE_KEYS.JOURNALS);
+  if ((!rawJournals || rawJournals === "[]") && INITIAL_JOURNALS.length > 0) {
     localStorage.setItem(STORAGE_KEYS.JOURNALS, JSON.stringify(INITIAL_JOURNALS));
   }
 }

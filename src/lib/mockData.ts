@@ -5753,4 +5753,733 @@ export const INITIAL_SCHEDULES: Schedule[] = [
   }
 ];
 
-export const INITIAL_JOURNALS: JournalEntry[] = [];
+export const INITIAL_JOURNALS: JournalEntry[] = [
+  {
+    "id": "jrn-demo-01",
+    "institution_id": "inst-smk-pancasila-5",
+    "schedule_id": "sch-007",
+    "actual_teacher_id": "user-e",
+    "teacher_name": "Endang S.Pd",
+    "class_name": "X AKL",
+    "subject_name": "Dasar-Dasar Akuntansi & Keuangan Lembaga",
+    "entry_date": "2026-10-05",
+    "start_time": "10:50",
+    "end_time": "13:35",
+    "start_period": 7,
+    "end_period": 10,
+    "learning_objective": "Peserta didik mampu memahami konsep dasar debit, kredit, dan penyusunan jurnal umum perusahaan jasa.",
+    "topic_materials": "Pengantar Siklus Akuntansi & Jurnal Umum",
+    "learning_activities": [
+      "Pemaparan Konsep",
+      "Latihan Mandiri Pembuatan Jurnal",
+      "Tanya Jawab"
+    ],
+    "student_present_count": 6,
+    "student_sick_count": 1,
+    "student_permit_count": 0,
+    "student_absent_count": 1,
+    "attendance_records": [
+      {
+        "student_id": "std-x-akl-001",
+        "student_name": "APRICILIA DEWI KIRANI",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-akl-002",
+        "student_name": "FAUZZIYAH ZAHRA YUMNA",
+        "status": "S",
+        "remarks": "Demam, surat izin terlampir"
+      },
+      {
+        "student_id": "std-x-akl-003",
+        "student_name": "FEBI NAKULA ASSIDIQ",
+        "status": "A",
+        "remarks": "Tanpa keterangan"
+      },
+      {
+        "student_id": "std-x-akl-004",
+        "student_name": "NATASYA LATHIFAH SARI",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-akl-005",
+        "student_name": "PRISYA ALVILIA PUTRI NEZTRIANA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-akl-006",
+        "student_name": "Ramadania Kirana Zailani",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-akl-007",
+        "student_name": "SALMA MARZUQAH",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-akl-008",
+        "student_name": "FEBRINA DHEA PUSPITA",
+        "status": "H"
+      }
+    ],
+    "teacher_notes": "Siswa sangat antusias dalam pengerjaan studi kasus transaksi penerimaan kas.",
+    "photo_url": "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=600&q=80",
+    "completion_rate": 100,
+    "is_locked": true,
+    "submitted_at": "2026-10-05T13:40:00Z"
+  },
+  {
+    "id": "jrn-demo-02",
+    "institution_id": "inst-smk-pancasila-5",
+    "schedule_id": "sch-007",
+    "actual_teacher_id": "user-e",
+    "teacher_name": "Endang S.Pd",
+    "class_name": "X AKL",
+    "subject_name": "Dasar-Dasar Akuntansi & Keuangan Lembaga",
+    "entry_date": "2026-10-12",
+    "start_time": "10:50",
+    "end_time": "13:35",
+    "start_period": 7,
+    "end_period": 10,
+    "learning_objective": "Peserta didik mampu memposting jurnal umum ke dalam buku besar utama.",
+    "topic_materials": "Posting Buku Besar Bentuk T & Skontro",
+    "learning_activities": [
+      "Demonstrasi Excel Akuntansi",
+      "Praktik Kelompok Buku Besar"
+    ],
+    "student_present_count": 6,
+    "student_sick_count": 0,
+    "student_permit_count": 1,
+    "student_absent_count": 1,
+    "attendance_records": [
+      {
+        "student_id": "std-x-akl-001",
+        "student_name": "APRICILIA DEWI KIRANI",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-akl-002",
+        "student_name": "FAUZZIYAH ZAHRA YUMNA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-akl-003",
+        "student_name": "FEBI NAKULA ASSIDIQ",
+        "status": "A",
+        "remarks": "Tanpa keterangan - hari ke-2"
+      },
+      {
+        "student_id": "std-x-akl-004",
+        "student_name": "NATASYA LATHIFAH SARI",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-akl-005",
+        "student_name": "PRISYA ALVILIA PUTRI NEZTRIANA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-akl-006",
+        "student_name": "Ramadania Kirana Zailani",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-akl-007",
+        "student_name": "SALMA MARZUQAH",
+        "status": "I",
+        "remarks": "Izin mengurus KTP elektronik"
+      },
+      {
+        "student_id": "std-x-akl-008",
+        "student_name": "FEBRINA DHEA PUSPITA",
+        "status": "H"
+      }
+    ],
+    "teacher_notes": "Seluruh tugas buku besar berhasil diselesaikan tepat waktu.",
+    "photo_url": "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=600&q=80",
+    "completion_rate": 100,
+    "is_locked": true,
+    "submitted_at": "2026-10-12T13:40:00Z"
+  },
+  {
+    "id": "jrn-demo-03",
+    "institution_id": "inst-smk-pancasila-5",
+    "schedule_id": "sch-007",
+    "actual_teacher_id": "user-e",
+    "teacher_name": "Endang S.Pd",
+    "class_name": "X AKL",
+    "subject_name": "Dasar-Dasar Akuntansi & Keuangan Lembaga",
+    "entry_date": "2026-10-19",
+    "start_time": "10:50",
+    "end_time": "13:35",
+    "start_period": 7,
+    "end_period": 10,
+    "learning_objective": "Peserta didik dapat menyusun neraca saldo sebelum penyesuaian.",
+    "topic_materials": "Neraca Saldo & Pendeteksian Kesalahan Pencatatan",
+    "learning_activities": [
+      "Studi Kasus Neraca Saldo",
+      "Diskusi Evaluasi"
+    ],
+    "student_present_count": 6,
+    "student_sick_count": 1,
+    "student_permit_count": 0,
+    "student_absent_count": 1,
+    "attendance_records": [
+      {
+        "student_id": "std-x-akl-001",
+        "student_name": "APRICILIA DEWI KIRANI",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-akl-002",
+        "student_name": "FAUZZIYAH ZAHRA YUMNA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-akl-003",
+        "student_name": "FEBI NAKULA ASSIDIQ",
+        "status": "A",
+        "remarks": "Tanpa keterangan - peringatan BK"
+      },
+      {
+        "student_id": "std-x-akl-004",
+        "student_name": "NATASYA LATHIFAH SARI",
+        "status": "S",
+        "remarks": "Sakit flu"
+      },
+      {
+        "student_id": "std-x-akl-005",
+        "student_name": "PRISYA ALVILIA PUTRI NEZTRIANA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-akl-006",
+        "student_name": "Ramadania Kirana Zailani",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-akl-007",
+        "student_name": "SALMA MARZUQAH",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-akl-008",
+        "student_name": "FEBRINA DHEA PUSPITA",
+        "status": "H"
+      }
+    ],
+    "teacher_notes": "Dilakukan pendampingan khusus untuk pemahaman saldo normal akun.",
+    "photo_url": "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=600&q=80",
+    "completion_rate": 100,
+    "is_locked": true,
+    "submitted_at": "2026-10-19T13:40:00Z"
+  },
+  {
+    "id": "jrn-demo-04",
+    "institution_id": "inst-smk-pancasila-5",
+    "schedule_id": "sch-001",
+    "actual_teacher_id": "user-q",
+    "teacher_name": "Joko S.Kom",
+    "class_name": "X TJKT",
+    "subject_name": "Dasar-Dasar Teknik Jaringan Komputer & Telekomunikasi",
+    "entry_date": "2026-10-05",
+    "start_time": "07:35",
+    "end_time": "09:20",
+    "start_period": 2,
+    "end_period": 4,
+    "learning_objective": "Peserta didik mampu memahami standarisasi kabel jaringan dan crimping kabel UTP Cat5e/Cat6.",
+    "topic_materials": "Kabel Jaringan UTP T568A vs T568B & Crimping Tool",
+    "learning_activities": [
+      "Praktik Lab Crimping UTP",
+      "Pengujian dengan Cable Tester"
+    ],
+    "student_present_count": 16,
+    "student_sick_count": 0,
+    "student_permit_count": 0,
+    "student_absent_count": 0,
+    "attendance_records": [
+      {
+        "student_id": "std-x-tjkt-045",
+        "student_name": "AJI NOVA HARIYANTO",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-046",
+        "student_name": "ANDRIAN MAULANA RISKIA MALIK",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-047",
+        "student_name": "BHARA VANESSA PRIMA YUDHISTIRA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-048",
+        "student_name": "DENASTIAN RASYA GILANG PRATAMA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-049",
+        "student_name": "Erlangga Adi Pratama",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-050",
+        "student_name": "Farid Dunnajid",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-051",
+        "student_name": "GHANI SATRIAJI",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-052",
+        "student_name": "Gustian Ramadhan",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-053",
+        "student_name": "MIKE MIO SHINOUHA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-054",
+        "student_name": "MOH NAJRIL WIJDAN",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-055",
+        "student_name": "MOH.MAULANA IBRA AGVIS PUTRA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-056",
+        "student_name": "MUHAMAD ADNAN YOSEB ABDHALLAH",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-057",
+        "student_name": "QHOLIZ TRI WIBOWO",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-058",
+        "student_name": "RIFKI ANDREAN",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-059",
+        "student_name": "RIZKI PRATAMA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-060",
+        "student_name": "CHELSEA NAYLA CANSHABIL CHEISA",
+        "status": "H"
+      }
+    ],
+    "teacher_notes": "Hasil uji kabel tester: 14 kabel lulus straight-through 100%.",
+    "photo_url": "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=600&q=80",
+    "completion_rate": 100,
+    "is_locked": true,
+    "submitted_at": "2026-10-05T13:40:00Z"
+  },
+  {
+    "id": "jrn-demo-05",
+    "institution_id": "inst-smk-pancasila-5",
+    "schedule_id": "sch-001",
+    "actual_teacher_id": "user-q",
+    "teacher_name": "Joko S.Kom",
+    "class_name": "X TJKT",
+    "subject_name": "Dasar-Dasar Teknik Jaringan Komputer & Telekomunikasi",
+    "entry_date": "2026-10-12",
+    "start_time": "07:35",
+    "end_time": "09:20",
+    "start_period": 2,
+    "end_period": 4,
+    "learning_objective": "Peserta didik mampu mengkonfigurasi IP Address Static pada Windows & Linux.",
+    "topic_materials": "Pengalamatan IPv4 Class A, B, C & Subnetting CIDR",
+    "learning_activities": [
+      "Simulasi Packet Tracer",
+      "Konfigurasi Adaptor LAN"
+    ],
+    "student_present_count": 16,
+    "student_sick_count": 0,
+    "student_permit_count": 0,
+    "student_absent_count": 0,
+    "attendance_records": [
+      {
+        "student_id": "std-x-tjkt-045",
+        "student_name": "AJI NOVA HARIYANTO",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-046",
+        "student_name": "ANDRIAN MAULANA RISKIA MALIK",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-047",
+        "student_name": "BHARA VANESSA PRIMA YUDHISTIRA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-048",
+        "student_name": "DENASTIAN RASYA GILANG PRATAMA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-049",
+        "student_name": "Erlangga Adi Pratama",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-050",
+        "student_name": "Farid Dunnajid",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-051",
+        "student_name": "GHANI SATRIAJI",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-052",
+        "student_name": "Gustian Ramadhan",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-053",
+        "student_name": "MIKE MIO SHINOUHA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-054",
+        "student_name": "MOH NAJRIL WIJDAN",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-055",
+        "student_name": "MOH.MAULANA IBRA AGVIS PUTRA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-056",
+        "student_name": "MUHAMAD ADNAN YOSEB ABDHALLAH",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-057",
+        "student_name": "QHOLIZ TRI WIBOWO",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-058",
+        "student_name": "RIFKI ANDREAN",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-059",
+        "student_name": "RIZKI PRATAMA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-060",
+        "student_name": "CHELSEA NAYLA CANSHABIL CHEISA",
+        "status": "H"
+      }
+    ],
+    "teacher_notes": "Siswa memahami cara kerja subnet mask /24 dan default gateway.",
+    "photo_url": "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=600&q=80",
+    "completion_rate": 100,
+    "is_locked": true,
+    "submitted_at": "2026-10-12T13:40:00Z"
+  },
+  {
+    "id": "jrn-demo-06",
+    "institution_id": "inst-smk-pancasila-5",
+    "schedule_id": "sch-001",
+    "actual_teacher_id": "user-q",
+    "teacher_name": "Joko S.Kom",
+    "class_name": "X TJKT",
+    "subject_name": "Dasar-Dasar Teknik Jaringan Komputer & Telekomunikasi",
+    "entry_date": "2026-10-19",
+    "start_time": "07:35",
+    "end_time": "09:20",
+    "start_period": 2,
+    "end_period": 4,
+    "learning_objective": "Peserta didik mampu melakukan pengujian konektivitas jaringan lokal menggunakan PING dan TRACERT.",
+    "topic_materials": "Diagnosa Jaringan CLI (Ping, Tracert, Netstat, Ipconfig)",
+    "learning_activities": [
+      "Troubleshooting Jaringan Lab",
+      "Laporan Singkat"
+    ],
+    "student_present_count": 16,
+    "student_sick_count": 0,
+    "student_permit_count": 0,
+    "student_absent_count": 0,
+    "attendance_records": [
+      {
+        "student_id": "std-x-tjkt-045",
+        "student_name": "AJI NOVA HARIYANTO",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-046",
+        "student_name": "ANDRIAN MAULANA RISKIA MALIK",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-047",
+        "student_name": "BHARA VANESSA PRIMA YUDHISTIRA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-048",
+        "student_name": "DENASTIAN RASYA GILANG PRATAMA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-049",
+        "student_name": "Erlangga Adi Pratama",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-050",
+        "student_name": "Farid Dunnajid",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-051",
+        "student_name": "GHANI SATRIAJI",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-052",
+        "student_name": "Gustian Ramadhan",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-053",
+        "student_name": "MIKE MIO SHINOUHA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-054",
+        "student_name": "MOH NAJRIL WIJDAN",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-055",
+        "student_name": "MOH.MAULANA IBRA AGVIS PUTRA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-056",
+        "student_name": "MUHAMAD ADNAN YOSEB ABDHALLAH",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-057",
+        "student_name": "QHOLIZ TRI WIBOWO",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-058",
+        "student_name": "RIFKI ANDREAN",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-059",
+        "student_name": "RIZKI PRATAMA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-tjkt-060",
+        "student_name": "CHELSEA NAYLA CANSHABIL CHEISA",
+        "status": "H"
+      }
+    ],
+    "teacher_notes": "Seluruh peserta didik aktif berpraktik di laboratorium komputer.",
+    "photo_url": "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=600&q=80",
+    "completion_rate": 100,
+    "is_locked": true,
+    "submitted_at": "2026-10-19T13:40:00Z"
+  },
+  {
+    "id": "jrn-demo-07",
+    "institution_id": "inst-smk-pancasila-5",
+    "schedule_id": "sch-009",
+    "actual_teacher_id": "user-j",
+    "teacher_name": "Jujuk S.Pd",
+    "class_name": "X MPLB",
+    "subject_name": "Dasar-Dasar Manajemen Perkantoran & Layanan Bisnis",
+    "entry_date": "2026-10-08",
+    "start_time": "07:35",
+    "end_time": "08:45",
+    "start_period": 2,
+    "end_period": 3,
+    "learning_objective": "Peserta didik mampu menerapkan etika komunikasi telepon dan korespondensi bisnis kantor.",
+    "topic_materials": "Komunikasi Efektif & Pelayanan Prima (Service Excellence)",
+    "learning_activities": [
+      "Role-Play Penerima Telepon Kantor",
+      "Evaluasi Rekaman"
+    ],
+    "student_present_count": 10,
+    "student_sick_count": 0,
+    "student_permit_count": 1,
+    "student_absent_count": 0,
+    "attendance_records": [
+      {
+        "student_id": "std-x-mplb-009",
+        "student_name": "Ain'na Nurhasanah",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-010",
+        "student_name": "Andini Nur'aini",
+        "status": "I",
+        "remarks": "Izin keluarga"
+      },
+      {
+        "student_id": "std-x-mplb-011",
+        "student_name": "DITA RAHMAYANI",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-012",
+        "student_name": "ESTER MARYSCHA WANDYANA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-013",
+        "student_name": "FATIHAH INDAH CAHYANI",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-014",
+        "student_name": "JESHIA NORITA SARI",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-015",
+        "student_name": "Larasati Ines Novarini",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-016",
+        "student_name": "NAYLA NAHDIA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-017",
+        "student_name": "SALSABILA AZZAHRA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-018",
+        "student_name": "TEOKTISTA CINTA ANDRA CANTIKA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-019",
+        "student_name": "Yuanita Cahya Kinasih",
+        "status": "H"
+      }
+    ],
+    "teacher_notes": "Roleplay berjalan sangat hidup dengan penanganan komplain pelanggan.",
+    "photo_url": "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=600&q=80",
+    "completion_rate": 100,
+    "is_locked": true,
+    "submitted_at": "2026-10-08T13:40:00Z"
+  },
+  {
+    "id": "jrn-demo-08",
+    "institution_id": "inst-smk-pancasila-5",
+    "schedule_id": "sch-009",
+    "actual_teacher_id": "user-j",
+    "teacher_name": "Jujuk S.Pd",
+    "class_name": "X MPLB",
+    "subject_name": "Dasar-Dasar Manajemen Perkantoran & Layanan Bisnis",
+    "entry_date": "2026-10-15",
+    "start_time": "07:35",
+    "end_time": "08:45",
+    "start_period": 2,
+    "end_period": 3,
+    "learning_objective": "Peserta didik mampu mengarsipkan dokumen kantor secara digital dan manual.",
+    "topic_materials": "Sistem Kearsipan Abjad, Kronologis, & Google Drive",
+    "learning_activities": [
+      "Praktik Klasifikasi Arsip",
+      "Penyimpanan Digital Cloud"
+    ],
+    "student_present_count": 10,
+    "student_sick_count": 1,
+    "student_permit_count": 0,
+    "student_absent_count": 0,
+    "attendance_records": [
+      {
+        "student_id": "std-x-mplb-009",
+        "student_name": "Ain'na Nurhasanah",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-010",
+        "student_name": "Andini Nur'aini",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-011",
+        "student_name": "DITA RAHMAYANI",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-012",
+        "student_name": "ESTER MARYSCHA WANDYANA",
+        "status": "S",
+        "remarks": "Sakit gigi"
+      },
+      {
+        "student_id": "std-x-mplb-013",
+        "student_name": "FATIHAH INDAH CAHYANI",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-014",
+        "student_name": "JESHIA NORITA SARI",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-015",
+        "student_name": "Larasati Ines Novarini",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-016",
+        "student_name": "NAYLA NAHDIA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-017",
+        "student_name": "SALSABILA AZZAHRA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-018",
+        "student_name": "TEOKTISTA CINTA ANDRA CANTIKA",
+        "status": "H"
+      },
+      {
+        "student_id": "std-x-mplb-019",
+        "student_name": "Yuanita Cahya Kinasih",
+        "status": "H"
+      }
+    ],
+    "teacher_notes": "Penguasaan filing system arsip berjalan baik.",
+    "photo_url": "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=600&q=80",
+    "completion_rate": 100,
+    "is_locked": true,
+    "submitted_at": "2026-10-15T13:40:00Z"
+  }
+];
+

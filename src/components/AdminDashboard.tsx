@@ -68,9 +68,11 @@ import {
   Phone,
   CheckCheck,
   Download,
+  BarChart3,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import StudentImportModal from "./StudentImportModal";
+import StudentAttendanceRecap from "./StudentAttendanceRecap";
 import { compressImage } from "@/lib/imageUtils";
 
 interface AdminDashboardProps {
@@ -81,7 +83,7 @@ interface AdminDashboardProps {
   onSwitchInstitution: (inst: Institution) => void;
 }
 
-type AdminTab = "jadwal" | "kelas" | "mapel" | "guru" | "monitor" | "lembaga";
+type AdminTab = "jadwal" | "kelas" | "mapel" | "guru" | "monitor" | "lembaga" | "presensi";
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   user,
@@ -154,6 +156,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newStudentGender, setNewStudentGender] = useState<"L" | "P">("L");
   const [showStudentImportModal, setShowStudentImportModal] = useState(false);
   const [importTargetClass, setImportTargetClass] = useState<ClassRoom | null>(null);
+  const [recapPreselectedClassId, setRecapPreselectedClassId] = useState<string>("all");
 
   // ================= MODAL MAPEL =================
   const [showSubjectModal, setShowSubjectModal] = useState(false);
@@ -918,11 +921,25 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
           onClick={() => setActiveTab("kelas")}
           className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
             activeTab === "kelas"
-              ? "bg-teal-600 text-white shadow-xs"
-              : "text-slate-600 hover:bg-slate-100"
+              ? isHeadmaster ? "bg-purple-700 text-white shadow-xs" : "bg-teal-600 text-white shadow-xs"
+              : isHeadmaster ? "text-purple-800 bg-purple-50 hover:bg-purple-100" : "text-slate-600 hover:bg-slate-100"
           }`}
         >
           <GraduationCap className="w-4 h-4" /> {isHeadmaster ? "Daftar Kelas" : "Kelola Kelas"} ({classes.length})
+        </button>
+
+        <button
+          onClick={() => {
+            setRecapPreselectedClassId("all");
+            setActiveTab("presensi");
+          }}
+          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            activeTab === "presensi"
+              ? isHeadmaster ? "bg-purple-700 text-white shadow-xs" : "bg-teal-600 text-white shadow-xs"
+              : isHeadmaster ? "text-purple-800 bg-purple-50 hover:bg-purple-100" : "text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          <BarChart3 className="w-4 h-4 text-emerald-400" /> Rekap Presensi Siswa
         </button>
 
         <button
@@ -1181,13 +1198,27 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleOpenStudentsModal(cls)}
-                    className="w-full py-2 px-3 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs flex items-center justify-center gap-1.5 border border-teal-200 transition cursor-pointer"
-                  >
-                    <Users className="w-3.5 h-3.5" />
-                    <span>{canManage ? "Kelola Daftar Siswa" : "Lihat Daftar Siswa"} ({count})</span>
-                  </button>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button
+                      onClick={() => handleOpenStudentsModal(cls)}
+                      className="py-2 px-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs flex items-center justify-center gap-1.5 border border-teal-200 transition cursor-pointer"
+                      title="Kelola & lihat daftar siswa"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      <span>Siswa ({count})</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setRecapPreselectedClassId(cls.id);
+                        setActiveTab("presensi");
+                      }}
+                      className="py-2 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 border border-slate-200 transition cursor-pointer"
+                      title="Lihat rekapitulasi kehadiran kelas ini"
+                    >
+                      <BarChart3 className="w-3.5 h-3.5 text-teal-600" />
+                      <span>Presensi</span>
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -1995,6 +2026,20 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
             })}
           </div>
         </div>
+      )}
+
+      {/* ================= TAB 7: REKAPITULASI PRESENSI SISWA ================= */}
+      {activeTab === "presensi" && (
+        <StudentAttendanceRecap
+          institution={activeInstitution}
+          classes={classes}
+          schedules={schedules}
+          subjects={subjects}
+          teachers={teachers}
+          allStudents={allStudents}
+          journals={journals}
+          initialClassId={recapPreselectedClassId}
+        />
       )}
 
       {/* ================= MODAL TAMBAH JADWAL ================= */}
