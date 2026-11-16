@@ -137,12 +137,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {isFirebaseConfigured ? (
                     <>
                       <Cloud className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="text-emerald-700 font-medium">Firebase Spark Cloud</span>
+                      <span className="text-emerald-700 font-medium">Cloud Sinkron</span>
                     </>
                   ) : (
                     <>
                       <HardDrive className="w-3.5 h-3.5 text-slate-500" />
-                      <span className="text-slate-600">Mode Lokal (Spark Ready)</span>
+                      <span className="text-slate-600">Penyimpanan Lokal</span>
                     </>
                   )}
                 </div>

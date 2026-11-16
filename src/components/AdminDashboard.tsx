@@ -114,6 +114,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [journals, setJournals] = useState<JournalEntry[]>([]);
   const [allStudents, setAllStudents] = useState<Student[]>([]);
+  const [scheduleClassFilter, setScheduleClassFilter] = useState<string>("all");
+  const [scheduleTeacherFilter, setScheduleTeacherFilter] = useState<string>("all");
   const [substitutions, setSubstitutions] = useState<SubstituteAssignment[]>([]);
   const [assigningInvalSchedule, setAssigningInvalSchedule] = useState<Schedule | null>(null);
   const [selectedInvalTeacherId, setSelectedInvalTeacherId] = useState("");
@@ -789,13 +791,27 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
     "Jumat",
   ];
 
+  const isLaporanTab = activeTab === "presensi" || activeTab === "rekap-jurnal";
+  const isMasterTab =
+    activeTab === "kelas" ||
+    activeTab === "guru" ||
+    activeTab === "mapel" ||
+    activeTab === "lembaga";
+
+  const activePrimaryBtnClass = isHeadmaster
+    ? "bg-purple-700 text-white shadow-xs"
+    : "bg-teal-600 text-white shadow-xs";
+  const inactivePrimaryBtnClass = isHeadmaster
+    ? "text-purple-800 bg-purple-50 hover:bg-purple-100"
+    : "text-slate-600 hover:bg-slate-100";
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      {/* 1. Banner Info Lembaga & Token Cepat */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-2xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <div className="relative group w-14 h-14 rounded-2xl bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center text-2xl shrink-0 overflow-hidden">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 space-y-4">
+      {/* 1. Banner Info Lembaga & Token Cepat (Kompak) */}
+      <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="relative group w-11 h-11 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center text-xl shrink-0 overflow-hidden">
               {activeInstitution.logo_url &&
               (activeInstitution.logo_url.startsWith("data:") ||
                 activeInstitution.logo_url.startsWith("http")) ? (
@@ -803,18 +819,17 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                 <img
                   src={activeInstitution.logo_url}
                   alt={activeInstitution.name}
-                  className="w-full h-full object-contain p-1 bg-white rounded-2xl"
+                  className="w-full h-full object-contain p-1 bg-white rounded-xl"
                 />
               ) : (
                 <span>{activeInstitution.logo_url || "🏫"}</span>
               )}
               {isSuperAdmin && (
                 <label
-                  className="absolute inset-0 bg-black/60 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition rounded-2xl text-xs font-bold"
+                  className="absolute inset-0 bg-black/60 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition rounded-xl text-[10px] font-bold"
                   title="Klik untuk ubah logo sekolah aktif"
                 >
-                  <Camera className="w-4 h-4 mb-0.5" />
-                  <span>Logo</span>
+                  <Camera className="w-3.5 h-3.5" />
                   <input
                     type="file"
                     accept="image/*"
@@ -827,64 +842,55 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                 </label>
               )}
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl sm:text-2xl font-black text-slate-900">
+                <h1 className="text-base sm:text-lg font-black text-slate-900 truncate">
                   {activeInstitution.name}
                 </h1>
-                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800">
-                  Jenjang {activeInstitution.education_level}
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">
+                  {activeInstitution.education_level}
                 </span>
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                  NPSN: {activeInstitution.npsn || "20108891"}
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                  NPSN {activeInstitution.npsn || "20108891"}
                 </span>
                 {isHeadmaster && (
-                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 flex items-center gap-1 border border-purple-200">
-                    <Award className="w-3.5 h-3.5 text-purple-700" /> Mode Supervisi (View Only)
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 flex items-center gap-1 border border-purple-200">
+                    <Award className="w-3 h-3 text-purple-700" /> View Only
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 mt-1">
-                {isHeadmaster
-                  ? "Panel Supervisi Kepala Sekolah • Pemantauan KBM, Jurnal & Pengingat WA • My School ID"
-                  : "Panel Administrasi & Manajemen Akademik Lengkap • My School ID"}
-              </p>
             </div>
           </div>
 
-          {/* Token Lembaga Card */}
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex items-center gap-3">
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">
-                TOKEN LEMBAGA GURU:
-              </p>
-              <div className="flex items-center gap-1.5">
-                <p className="font-mono text-base font-black text-teal-900 tracking-wider">
-                  {activeInstitution.token_lembaga}
-                </p>
-                {user.role === "SUPER_ADMIN" && (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEditInst(activeInstitution)}
-                    className="p-1 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-slate-200 transition cursor-pointer"
-                    title="Ubah Token Lembaga (Super Admin)"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
+          {/* Token Lembaga Kompak */}
+          <div className="bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 flex items-center justify-between sm:justify-start gap-3 shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-400 uppercase">Token:</span>
+              <span className="font-mono text-sm font-black text-teal-900 tracking-wider">
+                {activeInstitution.token_lembaga}
+              </span>
+              {user.role === "SUPER_ADMIN" && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenEditInst(activeInstitution)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-slate-200 transition cursor-pointer"
+                  title="Ubah Token Lembaga (Super Admin)"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={handleCopyToken}
-                className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 flex items-center gap-1 transition cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 flex items-center gap-1 transition cursor-pointer"
                 title="Salin Token"
               >
                 {copiedToken ? (
                   <>
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Tersalin!</span>
+                    <span>Tersalin</span>
                   </>
                 ) : (
                   <>
@@ -897,128 +903,173 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
               <button
                 type="button"
                 onClick={handleShareWA}
-                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 shadow-2xs transition cursor-pointer"
                 title="Kirim ke WhatsApp Guru"
               >
                 <Share2 className="w-3.5 h-3.5" />
-                <span>Bagikan WA</span>
+                <span>WA</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 2. Navigasi Tab Admin Lengkap */}
-      <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto pb-1 text-xs font-bold">
-        {/* Jika Kepala Sekolah, tab Supervisi ditaruh di awal */}
-        {isHeadmaster && (
+      {/* 2. Navigasi 4 Tab Utama yang Ringkas */}
+      <div className="space-y-2.5">
+        <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto pb-1.5 text-xs font-bold">
+          {isHeadmaster ? (
+            <button
+              onClick={() => setActiveTab("monitor")}
+              className={`px-4 py-2 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                activeTab === "monitor" ? activePrimaryBtnClass : inactivePrimaryBtnClass
+              }`}
+            >
+              <Award className="w-4 h-4" />
+              <span>Monitoring & Supervisi</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setActiveTab("jadwal")}
+              className={`px-4 py-2 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                activeTab === "jadwal" ? activePrimaryBtnClass : inactivePrimaryBtnClass
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              <span>Jadwal ({schedules.length})</span>
+            </button>
+          )}
+
+          {isHeadmaster ? (
+            <button
+              onClick={() => setActiveTab("jadwal")}
+              className={`px-4 py-2 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                activeTab === "jadwal" ? activePrimaryBtnClass : inactivePrimaryBtnClass
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              <span>Jadwal ({schedules.length})</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setActiveTab("monitor")}
+              className={`px-4 py-2 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                activeTab === "monitor" ? activePrimaryBtnClass : inactivePrimaryBtnClass
+              }`}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Monitoring</span>
+            </button>
+          )}
+
           <button
-            onClick={() => setActiveTab("monitor")}
-            className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-              activeTab === "monitor"
-                ? "bg-purple-700 text-white shadow-xs"
-                : "text-purple-800 bg-purple-50 hover:bg-purple-100"
+            onClick={() => {
+              if (!isLaporanTab) {
+                setRecapPreselectedClassId("all");
+                setActiveTab("presensi");
+              }
+            }}
+            className={`px-4 py-2 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              isLaporanTab ? activePrimaryBtnClass : inactivePrimaryBtnClass
             }`}
           >
-            <Award className="w-4 h-4 text-amber-300" />
-            <span>Supervisi & Pantauan Guru</span>
+            <BarChart3 className="w-4 h-4" />
+            <span>Laporan & Rekap</span>
           </button>
+
+          <button
+            onClick={() => {
+              if (!isMasterTab) setActiveTab("kelas");
+            }}
+            className={`px-4 py-2 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              isMasterTab ? activePrimaryBtnClass : inactivePrimaryBtnClass
+            }`}
+          >
+            <GraduationCap className="w-4 h-4" />
+            <span>{isHeadmaster ? "Data Sekolah" : "Kelola Data Sekolah"}</span>
+          </button>
+        </div>
+
+        {/* Sub-Tab untuk Laporan & Rekap */}
+        {isLaporanTab && (
+          <div className="flex flex-wrap items-center gap-2 bg-slate-100/80 p-1.5 rounded-2xl w-fit text-xs font-bold">
+            <button
+              onClick={() => {
+                setRecapPreselectedClassId("all");
+                setActiveTab("presensi");
+              }}
+              className={`px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+                activeTab === "presensi"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Rekap Presensi Siswa</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("rekap-jurnal")}
+              className={`px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+                activeTab === "rekap-jurnal"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5 text-teal-600" />
+              <span>Rekap Jurnal Mengajar</span>
+            </button>
+          </div>
         )}
 
-        <button
-          onClick={() => setActiveTab("jadwal")}
-          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            activeTab === "jadwal"
-              ? "bg-teal-600 text-white shadow-xs"
-              : "text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          <Calendar className="w-4 h-4" /> Matriks Jadwal ({schedules.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab("kelas")}
-          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            activeTab === "kelas"
-              ? isHeadmaster ? "bg-purple-700 text-white shadow-xs" : "bg-teal-600 text-white shadow-xs"
-              : isHeadmaster ? "text-purple-800 bg-purple-50 hover:bg-purple-100" : "text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          <GraduationCap className="w-4 h-4" /> {isHeadmaster ? "Daftar Kelas" : "Kelola Kelas"} ({classes.length})
-        </button>
-
-        <button
-          onClick={() => {
-            setRecapPreselectedClassId("all");
-            setActiveTab("presensi");
-          }}
-          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            activeTab === "presensi"
-              ? isHeadmaster ? "bg-purple-700 text-white shadow-xs" : "bg-teal-600 text-white shadow-xs"
-              : isHeadmaster ? "text-purple-800 bg-purple-50 hover:bg-purple-100" : "text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          <BarChart3 className="w-4 h-4 text-emerald-400" /> Rekap Presensi Siswa
-        </button>
-
-        <button
-          onClick={() => setActiveTab("rekap-jurnal")}
-          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            activeTab === "rekap-jurnal"
-              ? isHeadmaster ? "bg-purple-700 text-white shadow-xs" : "bg-teal-600 text-white shadow-xs"
-              : isHeadmaster ? "text-purple-800 bg-purple-50 hover:bg-purple-100" : "text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          <FileText className="w-4 h-4" /> Rekap Jurnal Mengajar
-        </button>
-
-        <button
-          onClick={() => setActiveTab("mapel")}
-          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            activeTab === "mapel"
-              ? "bg-teal-600 text-white shadow-xs"
-              : "text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          <BookOpen className="w-4 h-4" /> Mata Pelajaran ({subjects.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab("guru")}
-          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            activeTab === "guru"
-              ? "bg-teal-600 text-white shadow-xs"
-              : "text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          <Users className="w-4 h-4" /> Data Guru & Kontak ({teachers.length})
-        </button>
-
-        {/* Jika bukan Kepala Sekolah (Super Admin / Admin Kurikulum), tab monitoring diletakkan di sini */}
-        {!isHeadmaster && (
-          <button
-            onClick={() => setActiveTab("monitor")}
-            className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-              activeTab === "monitor"
-                ? "bg-teal-600 text-white shadow-xs"
-                : "text-slate-600 hover:bg-slate-100"
-            }`}
-          >
-            <CheckCircle2 className="w-4 h-4" /> Supervisi & Monitoring Guru
-          </button>
-        )}
-
-        {user.role === "SUPER_ADMIN" && (
-          <button
-            onClick={() => setActiveTab("lembaga")}
-            className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-              activeTab === "lembaga"
-                ? "bg-teal-600 text-white shadow-xs"
-                : "text-slate-600 hover:bg-slate-100"
-            }`}
-          >
-            <Building2 className="w-4 h-4" /> Kelola Lembaga ({institutions.length})
-          </button>
+        {/* Sub-Tab untuk Data Sekolah */}
+        {isMasterTab && (
+          <div className="flex flex-wrap items-center gap-2 bg-slate-100/80 p-1.5 rounded-2xl w-fit text-xs font-bold">
+            <button
+              onClick={() => setActiveTab("kelas")}
+              className={`px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+                activeTab === "kelas"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <GraduationCap className="w-3.5 h-3.5 text-teal-600" />
+              <span>Kelas & Siswa ({classes.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("guru")}
+              className={`px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+                activeTab === "guru"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Users className="w-3.5 h-3.5 text-teal-600" />
+              <span>Guru & Kontak ({teachers.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("mapel")}
+              className={`px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+                activeTab === "mapel"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5 text-teal-600" />
+              <span>Mata Pelajaran ({subjects.length})</span>
+            </button>
+            {user.role === "SUPER_ADMIN" && (
+              <button
+                onClick={() => setActiveTab("lembaga")}
+                className={`px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === "lembaga"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Building2 className="w-3.5 h-3.5 text-teal-600" />
+                <span>Lembaga ({institutions.length})</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -1034,22 +1085,70 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                 Dilengkapi mesin pencegah bentrok guru otomatis.
               </p>
             </div>
-            {canManage && (
-              <button
-                onClick={() => {
-                  setConflictWarning("");
-                  setShowAddScheduleModal(true);
-                }}
-                className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer self-start sm:self-auto"
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={scheduleClassFilter}
+                onChange={(e) => setScheduleClassFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-700 focus:outline-hidden focus:border-teal-500"
               >
-                <Plus className="w-4 h-4" /> Tambah Slot Jadwal
-              </button>
-            )}
+                <option value="all">Semua Kelas ({classes.length})</option>
+                {classes.map((cls) => (
+                  <option key={cls.id} value={cls.id}>
+                    Kelas {cls.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={scheduleTeacherFilter}
+                onChange={(e) => setScheduleTeacherFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs font-semibold text-slate-700 focus:outline-hidden focus:border-teal-500"
+              >
+                <option value="all">Semua Guru</option>
+                {teachers
+                  .filter((t) => t.role !== "HEADMASTER")
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+              </select>
+
+              {(scheduleClassFilter !== "all" || scheduleTeacherFilter !== "all") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScheduleClassFilter("all");
+                    setScheduleTeacherFilter("all");
+                  }}
+                  className="px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
+                >
+                  Reset
+                </button>
+              )}
+
+              {canManage && (
+                <button
+                  onClick={() => {
+                    setConflictWarning("");
+                    setShowAddScheduleModal(true);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" /> Tambah Slot Jadwal
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             {daysList.map((day) => {
-              const daySchedules = schedules.filter((s) => s.day_of_week === day);
+              const daySchedules = schedules.filter(
+                (s) =>
+                  s.day_of_week === day &&
+                  (scheduleClassFilter === "all" || s.class_id === scheduleClassFilter) &&
+                  (scheduleTeacherFilter === "all" || s.teacher_id === scheduleTeacherFilter)
+              );
               return (
                 <div
                   key={day}
