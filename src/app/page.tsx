@@ -6,7 +6,9 @@ import {
   getInstitutions,
   getSavedSession,
   getSavedToken,
+  saveSession,
   clearSession,
+  getUserById,
 } from "@/lib/storage";
 import { Navbar } from "@/components/Navbar";
 import { LoginView } from "@/components/LoginView";
@@ -42,8 +44,16 @@ export default function Home() {
 
         const session = getSavedSession();
         if (session && session.user && session.institution) {
-          setCurrentUser(session.user);
-          setActiveInstitution(session.institution);
+          const freshInst =
+            instList.find((i) => i.id === session.institution.id) || session.institution;
+          const liveUser = await getUserById(session.user.id);
+          const freshUser: User = liveUser
+            ? { ...liveUser, pin: "", totp_secret: undefined }
+            : session.user;
+
+          setCurrentUser(freshUser);
+          setActiveInstitution(freshInst);
+          saveSession(freshUser, freshInst);
           setShowPinWarning(hasDefaultPinWarning());
         }
       } catch (err) {
@@ -74,6 +84,9 @@ export default function Home() {
   // Handle Switch Institution (for Super Admin)
   const handleSwitchInstitution = (inst: Institution) => {
     setActiveInstitution(inst);
+    if (currentUser) {
+      saveSession(currentUser, inst);
+    }
   };
 
   const handleRefreshInstitutions = async () => {

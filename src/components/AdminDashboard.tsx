@@ -779,16 +779,22 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
       created_at: editingInst?.created_at || new Date().toISOString(),
     };
 
-    await saveInstitution(instToSave);
-    setShowAddInstModal(false);
+    try {
+      await saveInstitution(instToSave);
+      setShowAddInstModal(false);
 
-    // If edited institution is current active institution, sync it immediately
-    if (activeInstitution.id === instToSave.id) {
-      saveActiveToken(instToSave.token_lembaga);
-      onSwitchInstitution(instToSave);
+      // If edited institution is current active institution, sync it immediately
+      if (activeInstitution.id === instToSave.id) {
+        saveActiveToken(instToSave.token_lembaga);
+        onSwitchInstitution(instToSave);
+      }
+
+      onRefreshInstitutions();
+      showToast(`Data lembaga ${instToSave.name} berhasil disimpan!`, "success");
+    } catch (err: any) {
+      console.error(err);
+      showToast(err?.message || "Gagal menyimpan data lembaga ke Firestore.", "error");
     }
-
-    onRefreshInstitutions();
   };
 
   const handleDeleteInstitution = async () => {

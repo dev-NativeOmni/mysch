@@ -127,7 +127,8 @@ export async function saveInstitution(inst: Institution): Promise<void> {
     try {
       await setDoc(doc(db, "institutions", inst.id), stripUndefined(inst));
     } catch (e) {
-      console.warn("Firestore write error:", e);
+      console.error("Firestore saveInstitution error:", e);
+      throw e;
     }
   }
   const list = await getInstitutions();
@@ -184,7 +185,8 @@ export async function saveUser(user: User): Promise<void> {
     try {
       await setDoc(doc(db, "users", user.id), stripUndefined(user));
     } catch (e) {
-      console.warn("Firestore write error:", e);
+      console.error("Firestore saveUser error:", e);
+      throw e;
     }
   }
   const list = await getUsers();
