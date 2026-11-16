@@ -43,6 +43,13 @@ const STORAGE_KEYS = {
   SESSION: "jg_session",
 };
 
+// Firestore menolak properti bernilai undefined — bersihkan sebelum setDoc
+function stripUndefined<T extends object>(obj: T): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined)
+  );
+}
+
 // Inisialisasi awal ke localStorage jika kosong
 function initLocalStorage() {
   if (typeof window === "undefined") return;
@@ -118,7 +125,7 @@ export async function saveInstitution(inst: Institution): Promise<void> {
   initLocalStorage();
   if (isFirebaseConfigured && db) {
     try {
-      await setDoc(doc(db, "institutions", inst.id), inst);
+      await setDoc(doc(db, "institutions", inst.id), stripUndefined(inst));
     } catch (e) {
       console.warn("Firestore write error:", e);
     }
@@ -175,10 +182,7 @@ export async function saveUser(user: User): Promise<void> {
   initLocalStorage();
   if (isFirebaseConfigured && db) {
     try {
-      const cleanUser = Object.fromEntries(
-        Object.entries(user).filter(([, v]) => v !== undefined)
-      );
-      await setDoc(doc(db, "users", user.id), cleanUser);
+      await setDoc(doc(db, "users", user.id), stripUndefined(user));
     } catch (e) {
       console.warn("Firestore write error:", e);
     }
@@ -279,7 +283,7 @@ export async function saveSchedule(schedule: Schedule): Promise<void> {
   initLocalStorage();
   if (isFirebaseConfigured && db) {
     try {
-      await setDoc(doc(db, "schedules", schedule.id), schedule);
+      await setDoc(doc(db, "schedules", schedule.id), stripUndefined(schedule));
     } catch (e) {
       console.warn("Firestore write error:", e);
     }
@@ -339,7 +343,7 @@ export async function saveJournal(entry: JournalEntry): Promise<void> {
   initLocalStorage();
   if (isFirebaseConfigured && db) {
     try {
-      await setDoc(doc(db, "journals", entry.id), entry);
+      await setDoc(doc(db, "journals", entry.id), stripUndefined(entry));
     } catch (e) {
       console.warn("Firestore write error:", e);
     }
@@ -380,7 +384,7 @@ export async function saveClass(cls: ClassRoom): Promise<void> {
   initLocalStorage();
   if (isFirebaseConfigured && db) {
     try {
-      await setDoc(doc(db, "classes", cls.id), cls);
+      await setDoc(doc(db, "classes", cls.id), stripUndefined(cls));
     } catch (e) {
       console.warn("Firestore save class error:", e);
     }
@@ -436,7 +440,7 @@ export async function saveSubject(sub: Subject): Promise<void> {
   initLocalStorage();
   if (isFirebaseConfigured && db) {
     try {
-      await setDoc(doc(db, "subjects", sub.id), sub);
+      await setDoc(doc(db, "subjects", sub.id), stripUndefined(sub));
     } catch (e) {
       console.warn("Firestore save subject error:", e);
     }
@@ -510,7 +514,7 @@ export async function saveStudent(student: Student): Promise<void> {
   initLocalStorage();
   if (isFirebaseConfigured && db) {
     try {
-      await setDoc(doc(db, "students", student.id), student);
+      await setDoc(doc(db, "students", student.id), stripUndefined(student));
     } catch (e) {
       console.warn("Firestore save student error:", e);
     }
@@ -583,7 +587,7 @@ export async function saveStudentsBulk(
   if (isFirebaseConfigured && db) {
     try {
       for (const std of newStudents) {
-        await setDoc(doc(db, "students", std.id), std);
+        await setDoc(doc(db, "students", std.id), stripUndefined(std));
       }
     } catch (e) {
       console.warn("Firestore bulk write student error:", e);
@@ -623,7 +627,7 @@ export async function saveSubstitution(item: SubstituteAssignment): Promise<void
   initLocalStorage();
   if (isFirebaseConfigured && db) {
     try {
-      await setDoc(doc(db, "substitutions", item.id), item);
+      await setDoc(doc(db, "substitutions", item.id), stripUndefined(item));
     } catch (e) {
       console.warn("Firestore saveSubstitution error:", e);
     }
