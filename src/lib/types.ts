@@ -27,6 +27,8 @@ export interface User {
   subject_name?: string; // fallback / legacy string
   subject_ids?: string[]; // Array ID mata pelajaran yang diampu (bisa > 1)
   is_active: boolean;
+  totp_enabled?: boolean;
+  totp_secret?: string;
 }
 
 export interface ClassRoom {

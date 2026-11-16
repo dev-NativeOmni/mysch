@@ -683,7 +683,7 @@ export function getSavedSession(): { user: User; institution: Institution } | nu
 
 export function saveSession(user: User, institution: Institution): void {
   if (typeof window === "undefined") return;
-  const safeUser: User = { ...user, pin: "" };
+  const safeUser: User = { ...user, pin: "", totp_secret: undefined };
   localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify({ user: safeUser, institution }));
 }
 

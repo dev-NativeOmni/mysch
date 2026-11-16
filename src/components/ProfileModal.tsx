@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import QRCode from "qrcode";
 import { User, Institution } from "@/lib/types";
 import { saveUser, saveSession, getUserById, getSuperAdminUser } from "@/lib/storage";
 import {
@@ -11,6 +12,11 @@ import {
   setDefaultPinWarning,
   verifySecret,
 } from "@/lib/authUtils";
+import {
+  buildOtpAuthUri,
+  generateBase32Secret,
+  verifyTotpCode,
+} from "@/lib/totpUtils";
 import { compressImage } from "@/lib/imageUtils";
 import {
   User as UserIcon,
@@ -25,6 +31,9 @@ import {
   Trash2,
   X,
   Upload,
+  Smartphone,
+  Copy,
+  Check,
 } from "lucide-react";
 
 interface ProfileModalProps {
@@ -53,9 +62,120 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  // 2FA Google Authenticator (khusus Super Admin)
+  const [totpEnabled, setTotpEnabled] = useState(Boolean(user.totp_enabled));
+  const [pendingTotpSecret, setPendingTotpSecret] = useState("");
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [totpVerifyCode, setTotpVerifyCode] = useState("");
+  const [totpDisableConfirmCode, setTotpDisableConfirmCode] = useState("");
+  const [showDisableTotpPrompt, setShowDisableTotpPrompt] = useState(false);
+  const [totpWorking, setTotpWorking] = useState(false);
+  const [totpSecretCopied, setTotpSecretCopied] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (!isOpen || user.role !== "SUPER_ADMIN") return;
+    getSuperAdminUser()
+      .then((live) => setTotpEnabled(Boolean(live.totp_enabled && live.totp_secret)))
+      .catch(() => {});
+  }, [isOpen, user.role]);
+
   if (!isOpen) return null;
+
+  const handleStartTotpSetup = async () => {
+    setErrorMsg("");
+    setSuccessMsg("");
+    const secret = generateBase32Secret(20);
+    const uri = buildOtpAuthUri(secret, "superadmin", "My School ID");
+    try {
+      const dataUrl = await QRCode.toDataURL(uri, {
+        width: 192,
+        margin: 1,
+      });
+      setPendingTotpSecret(secret);
+      setQrDataUrl(dataUrl);
+      setTotpVerifyCode("");
+    } catch {
+      setErrorMsg("Gagal membuat QR Code 2FA. Coba lagi.");
+    }
+  };
+
+  const handleConfirmEnableTotp = async () => {
+    setErrorMsg("");
+    setSuccessMsg("");
+    if (totpVerifyCode.trim().length !== 6) {
+      setErrorMsg("Masukkan 6 digit kode dari Google Authenticator terlebih dahulu.");
+      return;
+    }
+
+    setTotpWorking(true);
+    try {
+      const valid = await verifyTotpCode(pendingTotpSecret, totpVerifyCode);
+      if (!valid) {
+        setErrorMsg("Kode 2FA tidak cocok. Pastikan jam di HP Anda sinkron otomatis.");
+        return;
+      }
+
+      const liveUser = await getSuperAdminUser();
+      const updatedUser: User = {
+        ...liveUser,
+        avatar_url: avatarUrl,
+        totp_enabled: true,
+        totp_secret: pendingTotpSecret,
+      };
+      await saveUser(updatedUser);
+      saveSession(updatedUser, activeInstitution);
+      onUserUpdated(updatedUser);
+
+      setTotpEnabled(true);
+      setPendingTotpSecret("");
+      setQrDataUrl("");
+      setTotpVerifyCode("");
+      setSuccessMsg("2FA Google Authenticator berhasil diaktifkan! Saat klik logo di halaman login, Anda bisa langsung masuk dengan kode 6 digit.");
+    } catch {
+      setErrorMsg("Gagal menyimpan pengaturan 2FA. Silakan coba lagi.");
+    } finally {
+      setTotpWorking(false);
+    }
+  };
+
+  const handleDisableTotp = async () => {
+    setErrorMsg("");
+    setSuccessMsg("");
+    setTotpWorking(true);
+    try {
+      const liveUser = await getSuperAdminUser();
+      const input = totpDisableConfirmCode.trim();
+      const validTotp = liveUser.totp_secret
+        ? await verifyTotpCode(liveUser.totp_secret, input)
+        : false;
+      const validPass = await verifySecret(input, liveUser.pin, SUPER_ADMIN_SALT);
+
+      if (!validTotp && !validPass) {
+        setErrorMsg("Masukkan kode 6 digit Google Authenticator atau password Super Admin yang benar.");
+        return;
+      }
+
+      const updatedUser: User = {
+        ...liveUser,
+        totp_enabled: false,
+        totp_secret: undefined,
+      };
+      await saveUser(updatedUser);
+      saveSession(updatedUser, activeInstitution);
+      onUserUpdated(updatedUser);
+
+      setTotpEnabled(false);
+      setShowDisableTotpPrompt(false);
+      setTotpDisableConfirmCode("");
+      setSuccessMsg("2FA Google Authenticator dinonaktifkan.");
+    } catch {
+      setErrorMsg("Gagal menonaktifkan 2FA.");
+    } finally {
+      setTotpWorking(false);
+    }
+  };
 
   // Handle Image File Selection
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -407,6 +527,146 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* 4. 2FA Google Authenticator (Khusus Super Admin) */}
+          {isSuperAdmin && (
+            <div className="border border-slate-200 rounded-2xl p-4 space-y-3 bg-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-teal-700" />
+                  <h3 className="font-bold text-xs text-slate-900 uppercase tracking-wide">
+                    2FA Google Authenticator
+                  </h3>
+                </div>
+                <span
+                  className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                    totpEnabled
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {totpEnabled ? "Aktif" : "Belum Aktif"}
+                </span>
+              </div>
+
+              {totpEnabled ? (
+                <div className="space-y-2.5 text-xs">
+                  <p className="text-slate-600">
+                    Login Super Admin sudah terhubung ke Google Authenticator. Klik logo sekolah di halaman masuk untuk langsung login dengan kode 6 digit.
+                  </p>
+                  {!showDisableTotpPrompt ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowDisableTotpPrompt(true)}
+                      className="px-3 py-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold transition cursor-pointer"
+                    >
+                      Nonaktifkan 2FA
+                    </button>
+                  ) : (
+                    <div className="p-3 rounded-xl bg-rose-50/70 border border-rose-200 space-y-2">
+                      <label className="block font-semibold text-rose-900">
+                        Masukkan kode 6 digit 2FA atau password Super Admin untuk konfirmasi:
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={totpDisableConfirmCode}
+                          onChange={(e) => setTotpDisableConfirmCode(e.target.value)}
+                          placeholder="Kode 6 digit / password"
+                          className="flex-1 p-2 rounded-xl border border-rose-300 bg-white text-slate-900 font-mono text-xs focus:outline-hidden"
+                        />
+                        <button
+                          type="button"
+                          disabled={totpWorking}
+                          onClick={handleDisableTotp}
+                          className="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold cursor-pointer"
+                        >
+                          Konfirmasi
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowDisableTotpPrompt(false);
+                            setTotpDisableConfirmCode("");
+                          }}
+                          className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-600 font-bold cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : pendingTotpSecret ? (
+                <div className="space-y-3 text-xs">
+                  <p className="text-slate-600">
+                    1. Buka aplikasi <strong>Google Authenticator</strong> di HP, pilih <strong>+ → Pindai kode QR</strong>:
+                  </p>
+                  {qrDataUrl && (
+                    <div className="flex justify-center p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                      <img src={qrDataUrl} alt="QR Code Google Authenticator" className="w-40 h-40 rounded-lg" />
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <div className="min-w-0">
+                      <span className="text-[11px] text-slate-400 font-bold block">Atau masukkan kunci manual:</span>
+                      <span className="font-mono font-bold text-slate-800 break-all">{pendingTotpSecret}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(pendingTotpSecret);
+                        setTotpSecretCopied(true);
+                        setTimeout(() => setTotpSecretCopied(false), 1500);
+                      }}
+                      className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-teal-700 shrink-0 cursor-pointer"
+                      title="Salin kunci rahasia"
+                    >
+                      {totpSecretCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">
+                      2. Masukkan kode 6 digit yang muncul di Google Authenticator:
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={totpVerifyCode}
+                        onChange={(e) => setTotpVerifyCode(e.target.value.replace(/\D/g, ""))}
+                        placeholder="000000"
+                        className="flex-1 p-2.5 rounded-xl border border-slate-300 font-mono text-center tracking-[0.3em] text-sm font-bold text-slate-900 focus:border-teal-500 focus:outline-hidden"
+                      />
+                      <button
+                        type="button"
+                        disabled={totpWorking || totpVerifyCode.length !== 6}
+                        onClick={handleConfirmEnableTotp}
+                        className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold cursor-pointer"
+                      >
+                        {totpWorking ? "Memverifikasi..." : "Aktifkan"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2.5 text-xs">
+                  <p className="text-slate-600">
+                    Aktifkan 2FA agar saat klik logo di halaman login, Anda cukup memasukkan kode 6 digit dari Google Authenticator.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleStartTotpSetup}
+                    className="px-4 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 font-bold transition cursor-pointer"
+                  >
+                    Aktifkan Google Authenticator
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Footer Actions */}
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">

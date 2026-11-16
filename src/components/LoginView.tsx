@@ -23,6 +23,7 @@ import {
   setDefaultPinWarning,
   verifySecret,
 } from "@/lib/authUtils";
+import { verifyTotpCode } from "@/lib/totpUtils";
 import {
   School,
   CheckCircle2,
@@ -64,6 +65,9 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
   // Modal Akses Khusus Super Admin via Klik Logo
   const [showSuperAdminModal, setShowSuperAdminModal] = useState(false);
+  const [superTotpEnabled, setSuperTotpEnabled] = useState(false);
+  const [superAuthMode, setSuperAuthMode] = useState<"totp" | "password">("password");
+  const [superTotpCode, setSuperTotpCode] = useState("");
   const [superUsername, setSuperUsername] = useState("");
   const [superPassword, setSuperPassword] = useState("");
   const [superAdminError, setSuperAdminError] = useState("");
@@ -213,6 +217,23 @@ export const LoginView: React.FC<LoginViewProps> = ({
     }
   };
 
+  const handleOpenSuperAdminModal = async () => {
+    setSuperUsername("");
+    setSuperPassword("");
+    setSuperTotpCode("");
+    setSuperAdminError("");
+    setShowSuperAdminModal(true);
+    try {
+      const su = await getSuperAdminUser();
+      const hasTotp = Boolean(su.totp_enabled && su.totp_secret);
+      setSuperTotpEnabled(hasTotp);
+      setSuperAuthMode(hasTotp ? "totp" : "password");
+    } catch {
+      setSuperTotpEnabled(false);
+      setSuperAuthMode("password");
+    }
+  };
+
   // Login Khusus Super Admin via Logo
   const handleSuperAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,18 +245,28 @@ export const LoginView: React.FC<LoginViewProps> = ({
       return;
     }
 
-    const cleanUser = superUsername.trim().toLowerCase();
     try {
       const superUser = await getSuperAdminUser();
-      const isPasswordValid =
-        cleanUser === "superadmin" &&
-        (await verifySecret(superPassword, superUser.pin, SUPER_ADMIN_SALT));
+      let isAuthorized = false;
 
-      if (!isPasswordValid) {
+      if (superAuthMode === "totp" && superUser.totp_enabled && superUser.totp_secret) {
+        isAuthorized = await verifyTotpCode(superUser.totp_secret, superTotpCode);
+      } else {
+        const cleanUser = superUsername.trim().toLowerCase();
+        isAuthorized =
+          cleanUser === "superadmin" &&
+          (await verifySecret(superPassword, superUser.pin, SUPER_ADMIN_SALT));
+      }
+
+      if (!isAuthorized) {
         const attempt = recordFailedAttempt("superadmin");
         if (attempt.locked) {
           setSuperAdminError(
             `Terlalu banyak percobaan gagal. Akses dikunci selama ${attempt.remainingSeconds} detik.`
+          );
+        } else if (superAuthMode === "totp") {
+          setSuperAdminError(
+            `Kode 2FA tidak valid (${attempt.attemptsLeft} percobaan tersisa).`
           );
         } else {
           setSuperAdminError(
@@ -275,12 +306,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
         <div className="text-center">
           <button
             type="button"
-            onClick={() => {
-              setSuperUsername("");
-              setSuperPassword("");
-              setSuperAdminError("");
-              setShowSuperAdminModal(true);
-            }}
+            onClick={handleOpenSuperAdminModal}
             className="w-14 h-14 mx-auto rounded-2xl bg-teal-600 hover:bg-teal-700 active:scale-95 text-white flex items-center justify-center shadow-lg shadow-teal-600/20 mb-3 transition cursor-pointer group"
             aria-label="Logo My School ID"
           >
@@ -477,43 +503,68 @@ export const LoginView: React.FC<LoginViewProps> = ({
             </div>
 
             <form onSubmit={handleSuperAdminLogin} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 uppercase tracking-wide text-xs mb-1">
-                  Username Super Admin
-                </label>
-                <input
-                  type="text"
-                  value={superUsername}
-                  onChange={(e) => setSuperUsername(e.target.value)}
-                  placeholder="superadmin"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-                  required
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 uppercase tracking-wide text-xs mb-1">
-                  Password Super Admin
-                </label>
-                <div className="relative">
+              {superAuthMode === "totp" ? (
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wide text-xs mb-1.5">
+                    Kode 2FA Google Authenticator
+                  </label>
                   <input
-                    type={showSuperPin ? "text" : "password"}
-                    value={superPassword}
-                    onChange={(e) => setSuperPassword(e.target.value)}
-                    placeholder="••••••"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-mono tracking-wider text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={superTotpCode}
+                    onChange={(e) => setSuperTotpCode(e.target.value.replace(/\D/g, ""))}
+                    placeholder="000000"
+                    className="w-full px-3.5 py-3 rounded-xl border border-slate-300 text-lg font-mono text-center tracking-[0.35em] font-bold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
                     required
+                    autoFocus
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowSuperPin(!showSuperPin)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    {showSuperPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                  <p className="text-[11px] text-slate-500 mt-1.5 text-center">
+                    Masukkan 6 digit kode dari aplikasi Google Authenticator di HP Anda.
+                  </p>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wide text-xs mb-1">
+                      Username Super Admin
+                    </label>
+                    <input
+                      type="text"
+                      value={superUsername}
+                      onChange={(e) => setSuperUsername(e.target.value)}
+                      placeholder="superadmin"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                      required
+                      autoFocus
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wide text-xs mb-1">
+                      Password Super Admin
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showSuperPin ? "text" : "password"}
+                        value={superPassword}
+                        onChange={(e) => setSuperPassword(e.target.value)}
+                        placeholder="••••••"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-mono tracking-wider text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSuperPin(!showSuperPin)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        {showSuperPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
 
               {superAdminError && (
                 <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-1.5">
@@ -527,8 +578,38 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 className="w-full py-3 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-md shadow-amber-600/20 transition flex items-center justify-center gap-1.5 cursor-pointer mt-2"
               >
                 <ShieldCheck className="w-4 h-4" />
-                <span>Masuk sebagai Super Admin</span>
+                <span>{superAuthMode === "totp" ? "Verifikasi & Masuk" : "Masuk sebagai Super Admin"}</span>
               </button>
+
+              {superAuthMode === "totp" ? (
+                <div className="text-center pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSuperAdminError("");
+                      setSuperAuthMode("password");
+                    }}
+                    className="text-[11px] font-semibold text-slate-500 hover:text-amber-700 underline cursor-pointer"
+                  >
+                    Masuk pakai password
+                  </button>
+                </div>
+              ) : (
+                superTotpEnabled && (
+                  <div className="text-center pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSuperAdminError("");
+                        setSuperAuthMode("totp");
+                      }}
+                      className="text-[11px] font-semibold text-slate-500 hover:text-amber-700 underline cursor-pointer"
+                    >
+                      Kembali ke kode 2FA Google Authenticator
+                    </button>
+                  </div>
+                )
+              )}
             </form>
           </div>
         </div>
