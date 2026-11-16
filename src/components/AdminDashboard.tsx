@@ -9,7 +9,13 @@ import {
   Subject,
   JournalEntry,
   Student,
+  SubstituteAssignment,
 } from "@/lib/types";
+import {
+  DEFAULT_TEACHER_PIN,
+  hashSecret,
+  isHashedSecret,
+} from "@/lib/authUtils";
 import {
   getSchedules,
   getUsers,
@@ -32,7 +38,11 @@ import {
   saveInstitution,
   deleteInstitution,
   saveActiveToken,
+  getSubstitutions,
+  saveSubstitution,
+  deleteSubstitution,
 } from "@/lib/storage";
+import { getLocalDateString } from "@/lib/dateUtils";
 import {
   Building2,
   Calendar,
@@ -73,6 +83,7 @@ import {
 import * as XLSX from "xlsx";
 import StudentImportModal from "./StudentImportModal";
 import StudentAttendanceRecap from "./StudentAttendanceRecap";
+import TeacherJournalRecap from "./TeacherJournalRecap";
 import { compressImage } from "@/lib/imageUtils";
 
 interface AdminDashboardProps {
@@ -83,7 +94,7 @@ interface AdminDashboardProps {
   onSwitchInstitution: (inst: Institution) => void;
 }
 
-type AdminTab = "jadwal" | "kelas" | "mapel" | "guru" | "monitor" | "lembaga" | "presensi";
+type AdminTab = "jadwal" | "kelas" | "mapel" | "guru" | "monitor" | "lembaga" | "presensi" | "rekap-jurnal";
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   user,
@@ -103,6 +114,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [journals, setJournals] = useState<JournalEntry[]>([]);
   const [allStudents, setAllStudents] = useState<Student[]>([]);
+  const [substitutions, setSubstitutions] = useState<SubstituteAssignment[]>([]);
+  const [assigningInvalSchedule, setAssigningInvalSchedule] = useState<Schedule | null>(null);
+  const [selectedInvalTeacherId, setSelectedInvalTeacherId] = useState("");
+  const [invalReason, setInvalReason] = useState("");
+  const [savingInval, setSavingInval] = useState(false);
 
   // ================= STATE MONITORING & SUPERVISI =================
   const getTodayIndoDay = (): "Senin" | "Selasa" | "Rabu" | "Kamis" | "Jumat" => {
@@ -201,13 +217,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Load all data
   const loadData = async () => {
     try {
-      const [schList, uList, clsList, subList, jrnList, stdList] = await Promise.all([
+      const todayStr = getLocalDateString();
+      const [schList, uList, clsList, subList, jrnList, stdList, subAssignList] = await Promise.all([
         getSchedules(activeInstitution.id),
         getUsers(activeInstitution.id),
         getClasses(activeInstitution.id),
         getSubjects(activeInstitution.id),
         getJournals(activeInstitution.id),
         getAllStudents(activeInstitution.id),
+        getSubstitutions(activeInstitution.id, todayStr),
       ]);
 
       setSchedules(schList);
@@ -216,6 +234,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setSubjects(subList);
       setJournals(jrnList);
       setAllStudents(stdList);
+      setSubstitutions(subAssignList);
 
       if (clsList.length > 0 && !newSchClassId) setNewSchClassId(clsList[0].id);
       if (uList.length > 0 && !newSchTeacherId) setNewSchTeacherId(uList[0].id);
@@ -529,7 +548,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       nip: teacherNip.trim(),
       name: teacherName.trim(),
       phone: teacherPhone.trim(),
-      pin: editingTeacher ? editingTeacher.pin : "123456",
+      pin: editingTeacher ? editingTeacher.pin : await hashSecret(DEFAULT_TEACHER_PIN),
       role: teacherRole,
       subject_ids: teacherSelectedSubjectIds,
       subject_name: summaryText,
@@ -940,6 +959,17 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
           }`}
         >
           <BarChart3 className="w-4 h-4 text-emerald-400" /> Rekap Presensi Siswa
+        </button>
+
+        <button
+          onClick={() => setActiveTab("rekap-jurnal")}
+          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            activeTab === "rekap-jurnal"
+              ? isHeadmaster ? "bg-purple-700 text-white shadow-xs" : "bg-teal-600 text-white shadow-xs"
+              : isHeadmaster ? "text-purple-800 bg-purple-50 hover:bg-purple-100" : "text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          <FileText className="w-4 h-4" /> Rekap Jurnal Mengajar
         </button>
 
         <button
@@ -1421,7 +1451,11 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                         </td>
                         <td className="py-3 px-4">
                           <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
-                            PIN: {t.pin}
+                            {isHashedSecret(t.pin)
+                              ? "PIN: Terenkripsi"
+                              : t.pin === DEFAULT_TEACHER_PIN
+                              ? "PIN: Bawaan (123456)"
+                              : "PIN: ••••••"}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right">
@@ -1677,6 +1711,10 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                   displayedSchedules.map((sch) => {
                     const jrn = journals.find((j) => j.schedule_id === sch.id);
                     const isFilled = Boolean(jrn);
+                    const isFilledBySubstitute = Boolean(
+                      jrn && (jrn.is_substitute || jrn.actual_teacher_id !== sch.teacher_id)
+                    );
+                    const invalSub = substitutions.find((sub) => sub.schedule_id === sch.id);
                     const teacher = teachers.find((t) => t.id === sch.teacher_id);
                     const tName = teacher?.name || getTeacherName(sch.teacher_id);
                     const cName = getClassName(sch.class_id);
@@ -1722,6 +1760,12 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                         <div className="flex items-center gap-2 shrink-0 self-start md:self-center flex-wrap">
                           {isFilled && jrn ? (
                             <>
+                              {isFilledBySubstitute && (
+                                <span className="text-xs font-bold text-indigo-800 bg-indigo-100 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                                  <Users className="w-3.5 h-3.5 text-indigo-600" />
+                                  <span>Diisi Pengganti: {jrn.teacher_name}</span>
+                                </span>
+                              )}
                               <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
                                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                                 <span>Lengkap ({jrn.student_present_count} Hadir)</span>
@@ -1746,10 +1790,45 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                             </>
                           ) : (
                             <>
-                              <span className="text-xs font-bold text-amber-800 bg-amber-100 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-                                <AlertCircle className="w-4 h-4 text-amber-600" />
-                                <span>Belum Mengisi</span>
-                              </span>
+                              {invalSub ? (
+                                <span className="text-xs font-bold text-indigo-800 bg-indigo-100 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                                  <Users className="w-3.5 h-3.5 text-indigo-600" />
+                                  <span>Ditugaskan Inval: {getTeacherName(invalSub.substitute_teacher_id)}</span>
+                                  {canManage && (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        await deleteSubstitution(invalSub.id);
+                                        loadData();
+                                      }}
+                                      className="ml-1 text-indigo-700 hover:text-rose-600 cursor-pointer"
+                                      title="Batalkan penugasan inval"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </span>
+                              ) : (
+                                <span className="text-xs font-bold text-amber-800 bg-amber-100 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                                  <AlertCircle className="w-4 h-4 text-amber-600" />
+                                  <span>Belum Mengisi</span>
+                                </span>
+                              )}
+                              {canManage && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAssigningInvalSchedule(sch);
+                                    setSelectedInvalTeacherId(invalSub?.substitute_teacher_id || "");
+                                    setInvalReason(invalSub?.reason || "");
+                                  }}
+                                  className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                                  title="Tugaskan guru pengganti (inval) untuk jadwal ini hari ini"
+                                >
+                                  <Users className="w-3.5 h-3.5" />
+                                  <span>{invalSub ? "Ubah Inval" : "Tugaskan Inval"}</span>
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => handleSendReminderWA(sch)}
@@ -1874,6 +1953,111 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                       className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer"
                     >
                       Tutup
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 7. Modal Penugasan Guru Pengganti (Inval) */}
+            {assigningInvalSchedule && canManage && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-sm">
+                        Tugaskan Guru Pengganti (Inval)
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Kelas {getClassName(assigningInvalSchedule.class_id)} • {getSubjectName(assigningInvalSchedule.subject_id)} ({assigningInvalSchedule.start_time} - {assigningInvalSchedule.end_time})
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAssigningInvalSchedule(null)}
+                      className="p-1.5 rounded-full hover:bg-slate-100 text-slate-500 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 text-xs">
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                      <span className="text-slate-400 font-bold uppercase block">Guru Jadwal Asli</span>
+                      <span className="font-bold text-slate-800">{getTeacherName(assigningInvalSchedule.teacher_id)}</span>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">
+                        Pilih Guru Pengganti (Inval)
+                      </label>
+                      <select
+                        value={selectedInvalTeacherId}
+                        onChange={(e) => setSelectedInvalTeacherId(e.target.value)}
+                        className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 font-medium focus:outline-hidden focus:border-indigo-500"
+                      >
+                        <option value="">-- Pilih Guru Pengganti --</option>
+                        {teachers
+                          .filter((t) => t.id !== assigningInvalSchedule.teacher_id && t.role !== "HEADMASTER")
+                          .map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">
+                        Keterangan / Alasan (Opsional)
+                      </label>
+                      <input
+                        type="text"
+                        value={invalReason}
+                        onChange={(e) => setInvalReason(e.target.value)}
+                        placeholder="Misal: Izin / Dinas Luar / Sakit"
+                        className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 focus:outline-hidden focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setAssigningInvalSchedule(null)}
+                      disabled={savingInval}
+                      className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!selectedInvalTeacherId || savingInval}
+                      onClick={async () => {
+                        if (!selectedInvalTeacherId) return;
+                        setSavingInval(true);
+                        try {
+                          const todayStr = getLocalDateString();
+                          await saveSubstitution({
+                            id: `sub-${assigningInvalSchedule.id}-${todayStr}`,
+                            institution_id: activeInstitution.id,
+                            schedule_id: assigningInvalSchedule.id,
+                            original_teacher_id: assigningInvalSchedule.teacher_id,
+                            substitute_teacher_id: selectedInvalTeacherId,
+                            assign_date: todayStr,
+                            reason: invalReason.trim() || undefined,
+                            created_by: user.id,
+                            created_at: new Date().toISOString(),
+                          });
+                          setAssigningInvalSchedule(null);
+                          await loadData();
+                        } finally {
+                          setSavingInval(false);
+                        }
+                      }}
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs cursor-pointer"
+                    >
+                      {savingInval ? "Menyimpan..." : "Simpan Penugasan"}
                     </button>
                   </div>
                 </div>
@@ -2039,6 +2223,18 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
           allStudents={allStudents}
           journals={journals}
           initialClassId={recapPreselectedClassId}
+        />
+      )}
+
+      {/* ================= TAB 8: REKAPITULASI JURNAL MENGAJAR GURU ================= */}
+      {activeTab === "rekap-jurnal" && (
+        <TeacherJournalRecap
+          institution={activeInstitution}
+          classes={classes}
+          schedules={schedules}
+          subjects={subjects}
+          teachers={teachers}
+          journals={journals}
         />
       )}
 

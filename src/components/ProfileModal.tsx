@@ -2,7 +2,15 @@
 
 import React, { useState, useRef } from "react";
 import { User, Institution } from "@/lib/types";
-import { saveUser, saveSession } from "@/lib/storage";
+import { saveUser, saveSession, getUserById, getSuperAdminUser } from "@/lib/storage";
+import {
+  DEFAULT_TEACHER_PIN,
+  DEFAULT_USER_SALT,
+  SUPER_ADMIN_SALT,
+  hashSecret,
+  setDefaultPinWarning,
+  verifySecret,
+} from "@/lib/authUtils";
 import { compressImage } from "@/lib/imageUtils";
 import {
   User as UserIcon,
@@ -85,44 +93,87 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     setSuccessMsg("Foto profil dihapus. Klik 'Simpan Perubahan' untuk menerapkan.");
   };
 
+  const isSuperAdmin = user.role === "SUPER_ADMIN";
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
     setSuccessMsg("");
 
-    let updatedPin = user.pin;
+    const liveUser = isSuperAdmin
+      ? await getSuperAdminUser()
+      : (await getUserById(user.id)) || user;
 
-    // Jika user mengisi form ganti PIN
-    if (newPin.trim() || confirmPin.trim()) {
-      if (newPin.length < 4 || newPin.length > 6) {
-        setErrorMsg("PIN baru harus terdiri dari 4 sampai 6 digit angka.");
+    let updatedPin = liveUser.pin;
+    const isChangingSecret = Boolean(newPin.trim() || confirmPin.trim());
+
+    // Jika user mengisi form ganti PIN / Password
+    if (isChangingSecret) {
+      if (!currentPin.trim()) {
+        setErrorMsg(
+          isSuperAdmin
+            ? "Masukkan password saat ini untuk verifikasi."
+            : "Masukkan PIN saat ini untuk verifikasi."
+        );
         return;
       }
-      if (!/^\d+$/.test(newPin)) {
-        setErrorMsg("PIN baru hanya boleh berisi angka (0-9).");
+
+      const activeSalt = isSuperAdmin ? SUPER_ADMIN_SALT : DEFAULT_USER_SALT;
+      const isCurrentValid = await verifySecret(
+        currentPin.trim(),
+        liveUser.pin,
+        activeSalt
+      );
+      if (!isCurrentValid) {
+        setErrorMsg(
+          isSuperAdmin
+            ? "Password saat ini tidak cocok. Periksa kembali."
+            : "PIN saat ini tidak cocok. Periksa kembali."
+        );
         return;
       }
+
+      if (isSuperAdmin) {
+        if (newPin.trim().length < 6 || newPin.trim().length > 32) {
+          setErrorMsg("Password baru Super Admin harus terdiri dari 6 sampai 32 karakter.");
+          return;
+        }
+      } else {
+        if (newPin.length < 4 || newPin.length > 6) {
+          setErrorMsg("PIN baru harus terdiri dari 4 sampai 6 digit angka.");
+          return;
+        }
+        if (!/^\d+$/.test(newPin)) {
+          setErrorMsg("PIN baru hanya boleh berisi angka (0-9).");
+          return;
+        }
+      }
+
       if (newPin !== confirmPin) {
-        setErrorMsg("Konfirmasi PIN baru tidak sesuai.");
+        setErrorMsg(
+          isSuperAdmin
+            ? "Konfirmasi password baru tidak sesuai."
+            : "Konfirmasi PIN baru tidak sesuai."
+        );
         return;
       }
-      if (currentPin && currentPin !== user.pin && user.role !== "SUPER_ADMIN") {
-        setErrorMsg("PIN saat ini tidak cocok. Periksa kembali.");
-        return;
-      }
-      updatedPin = newPin.trim();
+
+      updatedPin = await hashSecret(newPin.trim(), activeSalt);
     }
 
     setSaving(true);
     try {
       const updatedUser: User = {
-        ...user,
+        ...liveUser,
         avatar_url: avatarUrl,
         pin: updatedPin,
       };
 
       await saveUser(updatedUser);
       saveSession(updatedUser, activeInstitution);
+      if (isChangingSecret && newPin.trim() !== DEFAULT_TEACHER_PIN) {
+        setDefaultPinWarning(false);
+      }
       onUserUpdated(updatedUser);
 
       setSuccessMsg("Profil dan pengaturan berhasil diperbarui!");
@@ -276,13 +327,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             </div>
           </div>
 
-          {/* 3. Ganti PIN Masuk */}
+          {/* 3. Ganti PIN / Password Masuk */}
           <div className="border border-slate-200 rounded-2xl p-4 space-y-3 bg-white">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <KeyRound className="w-4 h-4 text-teal-700" />
                 <h3 className="font-bold text-xs text-slate-900 uppercase tracking-wide">
-                  Ganti PIN Masuk
+                  {isSuperAdmin ? "Ganti Password Super Admin" : "Ganti PIN Masuk"}
                 </h3>
               </div>
               <button
@@ -295,34 +346,62 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </button>
             </div>
             <p className="text-xs text-slate-500">
-              Kosongkan bagian ini jika Anda tidak ingin mengubah PIN masuk akun.
+              {isSuperAdmin
+                ? "Kosongkan bagian ini jika Anda tidak ingin mengubah password Super Admin."
+                : "Kosongkan bagian ini jika Anda tidak ingin mengubah PIN masuk akun."}
             </p>
 
             <div className="space-y-2 text-xs">
               <div>
                 <label className="block text-slate-600 font-medium mb-1">
-                  PIN Baru (4 - 6 Digit Angka)
+                  {isSuperAdmin ? "Password Saat Ini" : "PIN Saat Ini"}
                 </label>
                 <input
                   type={showPin ? "text" : "password"}
-                  maxLength={6}
-                  value={newPin}
-                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
-                  placeholder="Misal: 123456"
+                  maxLength={isSuperAdmin ? 32 : 6}
+                  value={currentPin}
+                  onChange={(e) =>
+                    setCurrentPin(
+                      isSuperAdmin ? e.target.value : e.target.value.replace(/\D/g, "")
+                    )
+                  }
+                  placeholder={isSuperAdmin ? "Masukkan password saat ini" : "Masukkan PIN saat ini"}
                   className="w-full p-2.5 rounded-xl border border-slate-300 font-mono tracking-widest text-slate-900 font-bold focus:border-teal-500 focus:outline-hidden"
                 />
               </div>
 
               <div>
                 <label className="block text-slate-600 font-medium mb-1">
-                  Konfirmasi PIN Baru
+                  {isSuperAdmin ? "Password Baru (6 - 32 Karakter)" : "PIN Baru (4 - 6 Digit Angka)"}
                 </label>
                 <input
                   type={showPin ? "text" : "password"}
-                  maxLength={6}
+                  maxLength={isSuperAdmin ? 32 : 6}
+                  value={newPin}
+                  onChange={(e) =>
+                    setNewPin(
+                      isSuperAdmin ? e.target.value : e.target.value.replace(/\D/g, "")
+                    )
+                  }
+                  placeholder={isSuperAdmin ? "Minimal 6 karakter" : "Misal: 654321"}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 font-mono tracking-widest text-slate-900 font-bold focus:border-teal-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-600 font-medium mb-1">
+                  {isSuperAdmin ? "Konfirmasi Password Baru" : "Konfirmasi PIN Baru"}
+                </label>
+                <input
+                  type={showPin ? "text" : "password"}
+                  maxLength={isSuperAdmin ? 32 : 6}
                   value={confirmPin}
-                  onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
-                  placeholder="Ketik ulang PIN baru"
+                  onChange={(e) =>
+                    setConfirmPin(
+                      isSuperAdmin ? e.target.value : e.target.value.replace(/\D/g, "")
+                    )
+                  }
+                  placeholder={isSuperAdmin ? "Ketik ulang password baru" : "Ketik ulang PIN baru"}
                   className="w-full p-2.5 rounded-xl border border-slate-300 font-mono tracking-widest text-slate-900 font-bold focus:border-teal-500 focus:outline-hidden"
                 />
               </div>

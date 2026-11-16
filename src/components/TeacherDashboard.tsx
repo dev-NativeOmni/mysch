@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { User, Institution, Schedule, JournalEntry, ClassRoom, Subject } from "@/lib/types";
-import { getSchedules, getJournals, getClasses, getSubjects } from "@/lib/storage";
+import { User, Institution, Schedule, JournalEntry, ClassRoom, Subject, SubstituteAssignment } from "@/lib/types";
+import { getSchedules, getJournals, getClasses, getSubjects, getUsers, getSubstitutions } from "@/lib/storage";
 import {
   getLocalDateString,
   getIndoDayName,
@@ -23,6 +23,9 @@ import {
   ChevronRight,
   User as UserIcon,
   PartyPopper,
+  UserCheck,
+  Search,
+  X,
 } from "lucide-react";
 
 interface TeacherDashboardProps {
@@ -37,7 +40,11 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onUserUpdated,
 }) => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [allSchedules, setAllSchedules] = useState<Schedule[]>([]);
   const [journals, setJournals] = useState<JournalEntry[]>([]);
+  const [allJournals, setAllJournals] = useState<JournalEntry[]>([]);
+  const [teachers, setTeachers] = useState<User[]>([]);
+  const [substitutions, setSubstitutions] = useState<SubstituteAssignment[]>([]);
   const [classes, setClasses] = useState<ClassRoom[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,26 +52,34 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   // Jam sekarang, diperbarui tiap menit agar status "Sedang Berlangsung" ikut berganti
   const [now, setNow] = useState(() => new Date());
 
-  // Modal Wizard State
+  // Modal Wizard & Inval State
   const [activeWizardSchedule, setActiveWizardSchedule] = useState<Schedule | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showInvalPickerModal, setShowInvalPickerModal] = useState(false);
+  const [invalSearchQuery, setInvalSearchQuery] = useState("");
 
   // Load teacher's schedules and journals
   const loadData = async () => {
     setLoading(true);
     try {
-      const [schList, jrnList, clsList, subList] = await Promise.all([
-        getSchedules(activeInstitution.id, user.id),
-        getJournals(activeInstitution.id, user.id),
+      const [instSchedules, instJournals, clsList, subList, userList, subAssignments] = await Promise.all([
+        getSchedules(activeInstitution.id),
+        getJournals(activeInstitution.id),
         getClasses(activeInstitution.id),
         getSubjects(activeInstitution.id),
+        getUsers(activeInstitution.id),
+        getSubstitutions(activeInstitution.id),
       ]);
 
-      setSchedules(schList);
-      setJournals(jrnList);
+      setAllSchedules(instSchedules);
+      setSchedules(instSchedules.filter((s) => s.teacher_id === user.id));
+      setAllJournals(instJournals);
+      setJournals(instJournals.filter((j) => j.actual_teacher_id === user.id));
       setClasses(clsList);
       setSubjects(subList);
+      setTeachers(userList);
+      setSubstitutions(subAssignments);
     } catch (err) {
       console.error(err);
     } finally {
@@ -86,6 +101,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const getClassName = (classId: string) => classes.find((c) => c.id === classId)?.name || "-";
   const getSubjectName = (subjectId: string) =>
     subjects.find((s) => s.id === subjectId)?.name || user.subject_name || "Mata Pelajaran";
+  const getTeacherName = (teacherId: string) =>
+    teachers.find((t) => t.id === teacherId)?.name || "Guru Jadwal";
 
   // Hanya jadwal untuk HARI INI, urut dari jam paling pagi
   const todayStr = getLocalDateString(now);
@@ -94,7 +111,40 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const todaySchedules = sortSchedulesByTime(schedules.filter((s) => s.day_of_week === todayName));
 
   const getJournalForSchedule = (scheduleId: string) =>
-    journals.find((j) => j.schedule_id === scheduleId && j.entry_date === todayStr);
+    allJournals.find((j) => j.schedule_id === scheduleId && j.entry_date === todayStr);
+
+  // Jadwal Inval (ditugaskan Admin hari ini atau sudah diisi sendiri sebagai pengganti hari ini)
+  const todayAssignedInvalIds = new Set(
+    substitutions
+      .filter((sub) => sub.assign_date === todayStr && sub.substitute_teacher_id === user.id)
+      .map((sub) => sub.schedule_id)
+  );
+  const invalSchedulesToday = sortSchedulesByTime(
+    allSchedules.filter((sch) => {
+      if (sch.day_of_week !== todayName || sch.teacher_id === user.id) return false;
+      if (todayAssignedInvalIds.has(sch.id)) return true;
+      const jrn = getJournalForSchedule(sch.id);
+      return Boolean(jrn && jrn.actual_teacher_id === user.id);
+    })
+  );
+
+  // Daftar jadwal guru lain hari ini yang belum terisi (untuk modal Bantu Mengajar / Inval)
+  const availableInvalCandidates = sortSchedulesByTime(
+    allSchedules.filter(
+      (sch) =>
+        sch.day_of_week === todayName &&
+        sch.teacher_id !== user.id &&
+        !getJournalForSchedule(sch.id)
+    )
+  ).filter((sch) => {
+    if (!invalSearchQuery.trim()) return true;
+    const q = invalSearchQuery.toLowerCase();
+    return (
+      getTeacherName(sch.teacher_id).toLowerCase().includes(q) ||
+      getClassName(sch.class_id).toLowerCase().includes(q) ||
+      getSubjectName(sch.subject_id).toLowerCase().includes(q)
+    );
+  });
 
   // Pilih jadwal untuk kartu utama:
   // 1) yang sedang berlangsung & belum diisi, 2) yang sudah lewat tapi belum diisi,
@@ -144,8 +194,18 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           <p className="text-sm text-slate-500 mt-0.5">{activeInstitution.name}</p>
         </div>
 
-        {/* Tombol Profil & Riwayat Jurnal */}
+        {/* Tombol Profil, Inval & Riwayat Jurnal */}
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+          <button
+            onClick={() => {
+              setInvalSearchQuery("");
+              setShowInvalPickerModal(true);
+            }}
+            className="px-4 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-800 text-sm font-bold flex items-center gap-1.5 transition cursor-pointer"
+          >
+            <UserCheck className="w-4 h-4" />
+            <span>Bantu Mengajar (Inval)</span>
+          </button>
           <button
             onClick={() => setShowProfileModal(true)}
             className="px-4 py-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-sm font-bold flex items-center gap-1.5 transition cursor-pointer"
@@ -335,6 +395,70 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         </div>
       )}
 
+      {/* 3B. Tugas Guru Pengganti (Inval) Hari Ini */}
+      {invalSchedulesToday.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-base font-bold text-indigo-900 flex items-center gap-2">
+              <UserCheck className="w-4 h-4 text-indigo-600" /> Tugas Guru Pengganti (Inval) Hari Ini
+            </h3>
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+              {invalSchedulesToday.length} Jadwal
+            </span>
+          </div>
+
+          <div className="space-y-2.5">
+            {invalSchedulesToday.map((sch) => {
+              const jrn = getJournalForSchedule(sch.id);
+              const originalName = getTeacherName(sch.teacher_id);
+              return (
+                <button
+                  type="button"
+                  key={`inval-${sch.id}`}
+                  onClick={() => setActiveWizardSchedule(sch)}
+                  className="w-full text-left p-4 rounded-2xl border border-indigo-200 bg-indigo-50/50 hover:border-indigo-300 transition cursor-pointer flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div
+                      className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold shrink-0 ${
+                        jrn ? "bg-emerald-100 text-emerald-800" : "bg-indigo-100 text-indigo-800"
+                      }`}
+                    >
+                      {jrn ? <CheckCircle2 className="w-6 h-6" /> : <span className="text-sm">{sch.start_time}</span>}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-slate-900 text-base truncate">
+                          Kelas {getClassName(sch.class_id)}
+                        </p>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                          Inval: {originalName}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-600 truncate">
+                        {getSubjectName(sch.subject_id)} • {sch.start_time} - {sch.end_time}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span
+                      className={`hidden sm:inline-flex text-xs font-bold px-2.5 py-1 rounded-full border ${
+                        jrn
+                          ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                          : "text-indigo-700 bg-white border-indigo-200"
+                      }`}
+                    >
+                      {jrn ? `Sudah diisi • ${jrn.student_present_count} hadir` : "Isi Jurnal Inval"}
+                    </span>
+                    <ChevronRight className="w-5 h-5 text-indigo-400" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Modal Wizard Pengisian Jurnal */}
       {activeWizardSchedule && (
         <JournalWizardModal
@@ -344,10 +468,87 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           existingJournal={getJournalForSchedule(activeWizardSchedule.id)}
           user={user}
           activeInstitution={activeInstitution}
+          isSubstitute={activeWizardSchedule.teacher_id !== user.id}
+          originalTeacherId={activeWizardSchedule.teacher_id}
+          originalTeacherName={getTeacherName(activeWizardSchedule.teacher_id)}
           onSaved={() => {
             loadData();
           }}
         />
+      )}
+
+      {/* Modal Pilih Jadwal Guru Inval (Self-Service) */}
+      {showInvalPickerModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-indigo-50/60">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-indigo-600" />
+                  <span>Bantu Mengajar (Guru Pengganti / Inval)</span>
+                </h3>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Pilih jadwal hari ini ({todayName}) yang guru pengampunya berhalangan hadir.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowInvalPickerModal(false)}
+                className="p-2 rounded-full hover:bg-slate-200/70 text-slate-600 transition cursor-pointer"
+                aria-label="Tutup"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 border-b border-slate-100">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={invalSearchQuery}
+                  onChange={(e) => setInvalSearchQuery(e.target.value)}
+                  placeholder="Cari nama guru, kelas, atau mata pelajaran..."
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-sm text-slate-800 focus:outline-hidden focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+              {availableInvalCandidates.length === 0 ? (
+                <div className="py-10 text-center text-sm text-slate-500">
+                  Tidak ada jadwal guru lain yang belum terisi hari ini.
+                </div>
+              ) : (
+                availableInvalCandidates.map((sch) => (
+                  <div
+                    key={sch.id}
+                    className="p-3.5 rounded-2xl border border-slate-200 hover:border-indigo-300 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm text-slate-900 truncate">
+                        Kelas {getClassName(sch.class_id)} • {getSubjectName(sch.subject_id)}
+                      </p>
+                      <p className="text-xs text-slate-600 mt-0.5">
+                        Guru Asli: <strong>{getTeacherName(sch.teacher_id)}</strong> • {sch.start_time} - {sch.end_time}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowInvalPickerModal(false);
+                        setActiveWizardSchedule(sch);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shrink-0 transition cursor-pointer"
+                    >
+                      Isi Sebagai Pengganti
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal Riwayat Jurnal Guru */}

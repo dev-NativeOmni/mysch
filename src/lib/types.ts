@@ -103,6 +103,21 @@ export interface JournalEntry {
   teacher_notes?: string;
   photo_url?: string;
   completion_rate?: number; // 100, 75, 50, 0
+  is_substitute?: boolean;
+  original_teacher_id?: string;
+  original_teacher_name?: string;
   is_locked: boolean;
   submitted_at: string;
+}
+
+export interface SubstituteAssignment {
+  id: string;
+  institution_id: string;
+  schedule_id: string;
+  original_teacher_id: string;
+  substitute_teacher_id: string;
+  assign_date: string; // YYYY-MM-DD
+  reason?: string;
+  created_by: string;
+  created_at: string;
 }

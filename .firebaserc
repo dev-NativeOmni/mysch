@@ -5,14 +5,8 @@
   "targets": {
     "mysch-app": {
       "hosting": {
-        "mysch-id": [
-          "mysch-id"
-        ],
         "mysch-app": [
           "mysch-app"
-        ],
-        "myschoolid": [
-          "myschoolid"
         ]
       }
     }

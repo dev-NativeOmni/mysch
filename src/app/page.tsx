@@ -12,7 +12,9 @@ import { Navbar } from "@/components/Navbar";
 import { LoginView } from "@/components/LoginView";
 import { TeacherDashboard } from "@/components/TeacherDashboard";
 import { AdminDashboard } from "@/components/AdminDashboard";
-import { GraduationCap, ArrowLeftRight } from "lucide-react";
+import { ProfileModal } from "@/components/ProfileModal";
+import { hasDefaultPinWarning, setDefaultPinWarning } from "@/lib/authUtils";
+import { GraduationCap, ArrowLeftRight, ShieldAlert, X } from "lucide-react";
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -23,6 +25,8 @@ export default function Home() {
 
   // Admin view toggle (Admin can switch to Teacher preview)
   const [adminViewMode, setAdminViewMode] = useState<"admin" | "teacher">("admin");
+  const [showPinWarning, setShowPinWarning] = useState(false);
+  const [showQuickProfileModal, setShowQuickProfileModal] = useState(false);
 
   // Load session on startup
   useEffect(() => {
@@ -40,6 +44,7 @@ export default function Home() {
         if (session && session.user && session.institution) {
           setCurrentUser(session.user);
           setActiveInstitution(session.institution);
+          setShowPinWarning(hasDefaultPinWarning());
         }
       } catch (err) {
         console.error(err);
@@ -55,11 +60,14 @@ export default function Home() {
     setCurrentUser(user);
     setActiveInstitution(institution);
     setAdminViewMode("admin");
+    setShowPinWarning(hasDefaultPinWarning());
   };
 
   // Handle Logout
   const handleLogout = () => {
     clearSession();
+    setDefaultPinWarning(false);
+    setShowPinWarning(false);
     setCurrentUser(null);
   };
 
@@ -75,6 +83,7 @@ export default function Home() {
 
   const handleUserUpdated = (updatedUser: User) => {
     setCurrentUser(updatedUser);
+    setShowPinWarning(hasDefaultPinWarning());
   };
 
   if (loading) {
@@ -157,6 +166,39 @@ export default function Home() {
         </div>
       )}
 
+      {/* Peringatan Keamanan: Masih Memakai PIN / Password Bawaan */}
+      {showPinWarning && (
+        <div className="bg-rose-50 border-b border-rose-200 px-4 py-2.5 text-xs">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-rose-900 font-medium">
+              <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>
+                {currentUser.role === "SUPER_ADMIN"
+                  ? "Anda masih menggunakan password bawaan Super Admin. Demi keamanan, segera ganti password Anda."
+                  : "Anda masih menggunakan PIN bawaan (123456). Demi keamanan akun, segera ganti dengan PIN pribadi Anda."}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowQuickProfileModal(true)}
+                className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold transition cursor-pointer"
+              >
+                {currentUser.role === "SUPER_ADMIN" ? "Ganti Password" : "Ganti PIN"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPinWarning(false)}
+                className="p-1 rounded-lg text-rose-700 hover:bg-rose-100 transition cursor-pointer"
+                aria-label="Tutup peringatan"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content View */}
       <main className="flex-1 pb-12">
         {isManagement && adminViewMode === "admin" ? (
@@ -175,6 +217,14 @@ export default function Home() {
           />
         )}
       </main>
+
+      <ProfileModal
+        user={currentUser}
+        activeInstitution={activeInstitution}
+        isOpen={showQuickProfileModal}
+        onClose={() => setShowQuickProfileModal(false)}
+        onUserUpdated={handleUserUpdated}
+      />
     </div>
   );
 }

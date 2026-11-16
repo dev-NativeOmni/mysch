@@ -31,6 +31,9 @@ interface JournalWizardModalProps {
   existingJournal?: JournalEntry;
   user: User;
   activeInstitution: Institution;
+  isSubstitute?: boolean;
+  originalTeacherId?: string;
+  originalTeacherName?: string;
   onSaved: (entry: JournalEntry) => void;
 }
 
@@ -41,8 +44,14 @@ export const JournalWizardModal: React.FC<JournalWizardModalProps> = ({
   existingJournal,
   user,
   activeInstitution,
+  isSubstitute = false,
+  originalTeacherId,
+  originalTeacherName,
   onSaved,
 }) => {
+  const effectiveIsSubstitute = Boolean(
+    isSubstitute || existingJournal?.is_substitute || schedule.teacher_id !== user.id
+  );
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [students, setStudents] = useState<Student[]>([]);
   const [attendanceMap, setAttendanceMap] = useState<Record<string, AttendanceStatus>>({});
@@ -69,6 +78,23 @@ export const JournalWizardModal: React.FC<JournalWizardModalProps> = ({
 
   // Menandai ada isian yang berubah, agar tidak hilang saat modal tertutup tidak sengaja
   const [isDirty, setIsDirty] = useState(false);
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator !== "undefined" ? navigator.onLine : true
+  );
+
+  const draftKey = `jg_draft_${user.id}_${schedule.id}_${getLocalDateString()}`;
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   // Muat data siswa, nama kelas, dan nama mapel saat modal dibuka
   useEffect(() => {
@@ -76,6 +102,7 @@ export const JournalWizardModal: React.FC<JournalWizardModalProps> = ({
 
     setCurrentStep(1);
     setSearchQuery("");
+    setHasRestoredDraft(false);
 
     async function loadData() {
       const [classes, subjects, stdList] = await Promise.all([
@@ -91,20 +118,116 @@ export const JournalWizardModal: React.FC<JournalWizardModalProps> = ({
       setSubjectName(sub ? sub.name : user.subject_name || "Mata Pelajaran");
       setStudents(stdList);
 
-      // Inisialisasi: SEMUA SISWA HADIR SECARA DEFAULT, kecuali jurnal lama sudah mencatat lain
+      // Cek apakah ada draft offline yang tersimpan (khusus jurnal baru)
+      let restoredDraft: {
+        attendanceMap?: Record<string, AttendanceStatus>;
+        learningObjective?: string;
+        topicMaterials?: string;
+        selectedActivities?: string[];
+        completionRate?: number;
+        teacherNotes?: string;
+      } | null = null;
+
+      if (!existingJournal) {
+        try {
+          const rawDraft = localStorage.getItem(draftKey);
+          if (rawDraft) {
+            restoredDraft = JSON.parse(rawDraft);
+          }
+        } catch {
+          restoredDraft = null;
+        }
+      }
+
+      // Inisialisasi: SEMUA SISWA HADIR SECARA DEFAULT, kecuali jurnal lama / draft sudah mencatat lain
       const previousStatus: Record<string, AttendanceStatus> = {};
-      existingJournal?.attendance_records.forEach((r) => {
-        previousStatus[r.student_id] = r.status;
-      });
+      if (restoredDraft?.attendanceMap) {
+        Object.assign(previousStatus, restoredDraft.attendanceMap);
+      } else {
+        existingJournal?.attendance_records.forEach((r) => {
+          previousStatus[r.student_id] = r.status;
+        });
+      }
       const initialMap: Record<string, AttendanceStatus> = {};
       stdList.forEach((s) => {
         initialMap[s.id] = previousStatus[s.id] || "H";
       });
       setAttendanceMap(initialMap);
+
+      if (restoredDraft) {
+        if (restoredDraft.learningObjective !== undefined) {
+          setLearningObjective(restoredDraft.learningObjective);
+        }
+        if (restoredDraft.topicMaterials !== undefined) {
+          setTopicMaterials(restoredDraft.topicMaterials);
+        }
+        if (Array.isArray(restoredDraft.selectedActivities)) {
+          setSelectedActivities(restoredDraft.selectedActivities);
+        }
+        if (typeof restoredDraft.completionRate === "number") {
+          setCompletionRate(restoredDraft.completionRate);
+        }
+        if (restoredDraft.teacherNotes !== undefined) {
+          setTeacherNotes(restoredDraft.teacherNotes);
+        }
+        setHasRestoredDraft(true);
+      }
     }
 
     loadData();
-  }, [isOpen, schedule, activeInstitution.id, existingJournal, user.subject_name]);
+  }, [isOpen, schedule, activeInstitution.id, existingJournal, user.subject_name, draftKey]);
+
+  // Auto-save draft offline setiap kali ada perubahan pada jurnal baru
+  useEffect(() => {
+    if (!isOpen || existingJournal || !isDirty) return;
+    try {
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          attendanceMap,
+          learningObjective,
+          topicMaterials,
+          selectedActivities,
+          completionRate,
+          teacherNotes,
+          savedAt: new Date().toISOString(),
+        })
+      );
+    } catch {
+      // Abaikan jika localStorage penuh/diblokir
+    }
+  }, [
+    isOpen,
+    existingJournal,
+    isDirty,
+    draftKey,
+    attendanceMap,
+    learningObjective,
+    topicMaterials,
+    selectedActivities,
+    completionRate,
+    teacherNotes,
+  ]);
+
+  const handleDiscardDraft = () => {
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      // Abaikan
+    }
+    const resetMap: Record<string, AttendanceStatus> = {};
+    students.forEach((s) => {
+      resetMap[s.id] = "H";
+    });
+    setAttendanceMap(resetMap);
+    setLearningObjective("");
+    setTopicMaterials("");
+    setSelectedActivities([]);
+    setCompletionRate(100);
+    setTeacherNotes("");
+    setIsDirty(false);
+    setHasRestoredDraft(false);
+  };
 
   if (!isOpen) return null;
 
@@ -235,11 +358,24 @@ export const JournalWizardModal: React.FC<JournalWizardModalProps> = ({
         teacher_notes: teacherNotes.trim(),
         photo_url: photoPreview || undefined,
         completion_rate: completionRate,
+        is_substitute: effectiveIsSubstitute,
+        original_teacher_id: effectiveIsSubstitute
+          ? originalTeacherId || existingJournal?.original_teacher_id || schedule.teacher_id
+          : undefined,
+        original_teacher_name: effectiveIsSubstitute
+          ? originalTeacherName || existingJournal?.original_teacher_name
+          : undefined,
         is_locked: existingJournal?.is_locked ?? false,
         submitted_at: new Date().toISOString(),
       };
 
       await saveJournal(newEntry);
+
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        // Abaikan
+      }
 
       // Confetti celebration
       try {
@@ -304,6 +440,40 @@ export const JournalWizardModal: React.FC<JournalWizardModalProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Banner Guru Pengganti (Inval) */}
+        {effectiveIsSubstitute && (
+          <div className="bg-indigo-50 border-b border-indigo-200 px-5 py-2.5 text-xs font-semibold text-indigo-900 flex items-center justify-between gap-2 shrink-0">
+            <span>
+              Mode Guru Pengganti (Inval)
+              {(originalTeacherName || existingJournal?.original_teacher_name) &&
+                ` • Menggantikan ${originalTeacherName || existingJournal?.original_teacher_name}`}
+            </span>
+            <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-bold text-[11px]">
+              Inval
+            </span>
+          </div>
+        )}
+
+        {/* Banner Status Offline / Draft Tersimpan */}
+        {(!isOnline || hasRestoredDraft) && (
+          <div className="bg-amber-50 border-b border-amber-200 px-5 py-2 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-2 shrink-0">
+            <span className="font-semibold">
+              {!isOnline
+                ? "Mode Offline: Isian tetap tersimpan otomatis sebagai draft di perangkat ini."
+                : "Draft tersimpan otomatis dari perangkat ini dipulihkan."}
+            </span>
+            {hasRestoredDraft && (
+              <button
+                type="button"
+                onClick={handleDiscardDraft}
+                className="font-bold text-rose-700 hover:underline cursor-pointer"
+              >
+                Reset Draft
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Penanda Langkah (3 Langkah Ringan) */}
         <div className="grid grid-cols-3 bg-white border-b border-slate-200 text-sm font-bold text-center shrink-0">

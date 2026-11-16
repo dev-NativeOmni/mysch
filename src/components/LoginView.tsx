@@ -6,9 +6,23 @@ import {
   getInstitutionByToken,
   getInstitutions,
   getUsers,
+  getSuperAdminUser,
+  saveUser,
   saveActiveToken,
   saveSession,
 } from "@/lib/storage";
+import {
+  DEFAULT_TEACHER_PIN,
+  SUPER_ADMIN_DEFAULT_HASH,
+  SUPER_ADMIN_SALT,
+  getLockoutRemainingSeconds,
+  hashSecret,
+  isHashedSecret,
+  recordFailedAttempt,
+  resetFailedAttempts,
+  setDefaultPinWarning,
+  verifySecret,
+} from "@/lib/authUtils";
 import {
   School,
   CheckCircle2,
@@ -138,15 +152,46 @@ export const LoginView: React.FC<LoginViewProps> = ({
       return;
     }
 
+    const lockoutLeft = getLockoutRemainingSeconds("teacher");
+    if (lockoutLeft > 0) {
+      setErrorMsg(`Terlalu banyak percobaan PIN gagal. Coba lagi dalam ${lockoutLeft} detik.`);
+      return;
+    }
+
     setLoading(true);
     try {
       const user = institutionUsers.find((u) => u.id === selectedUserId);
+      const trimmedPin = pinInput.trim();
+      const isValidPin = user ? await verifySecret(trimmedPin, user.pin) : false;
 
-      if (!user || user.pin !== pinInput.trim()) {
-        setErrorMsg("PIN salah. Coba lagi, atau hubungi admin sekolah jika lupa PIN.");
+      if (!user || !isValidPin) {
+        const attempt = recordFailedAttempt("teacher");
+        if (attempt.locked) {
+          setErrorMsg(
+            `Terlalu banyak percobaan PIN gagal. Login dikunci selama ${attempt.remainingSeconds} detik.`
+          );
+        } else {
+          setErrorMsg(
+            `PIN salah (${attempt.attemptsLeft} percobaan tersisa). Hubungi admin sekolah jika lupa PIN.`
+          );
+        }
         setLoading(false);
         return;
       }
+
+      resetFailedAttempts("teacher");
+
+      // Auto-upgrade PIN plaintext lama ke hash SHA-256
+      if (!isHashedSecret(user.pin)) {
+        try {
+          const hashedPin = await hashSecret(trimmedPin);
+          await saveUser({ ...user, pin: hashedPin });
+        } catch (upgradeErr) {
+          console.warn("Gagal auto-upgrade hash PIN:", upgradeErr);
+        }
+      }
+
+      setDefaultPinWarning(trimmedPin === DEFAULT_TEACHER_PIN);
 
       try {
         localStorage.setItem(LAST_USER_KEY, user.id);
@@ -173,13 +218,36 @@ export const LoginView: React.FC<LoginViewProps> = ({
     e.preventDefault();
     setSuperAdminError("");
 
-    const cleanUser = superUsername.trim().toLowerCase();
-    if (cleanUser !== "superadmin" || superPassword !== "123000") {
-      setSuperAdminError("Username atau password Super Admin tidak cocok.");
+    const lockoutLeft = getLockoutRemainingSeconds("superadmin");
+    if (lockoutLeft > 0) {
+      setSuperAdminError(`Terlalu banyak percobaan gagal. Coba lagi dalam ${lockoutLeft} detik.`);
       return;
     }
 
+    const cleanUser = superUsername.trim().toLowerCase();
     try {
+      const superUser = await getSuperAdminUser();
+      const isPasswordValid =
+        cleanUser === "superadmin" &&
+        (await verifySecret(superPassword, superUser.pin, SUPER_ADMIN_SALT));
+
+      if (!isPasswordValid) {
+        const attempt = recordFailedAttempt("superadmin");
+        if (attempt.locked) {
+          setSuperAdminError(
+            `Terlalu banyak percobaan gagal. Akses dikunci selama ${attempt.remainingSeconds} detik.`
+          );
+        } else {
+          setSuperAdminError(
+            `Username atau password Super Admin tidak cocok (${attempt.attemptsLeft} percobaan tersisa).`
+          );
+        }
+        return;
+      }
+
+      resetFailedAttempts("superadmin");
+      setDefaultPinWarning(superUser.pin === SUPER_ADMIN_DEFAULT_HASH);
+
       const institutions = await getInstitutions();
       const defaultInst = institutions[0] || {
         id: "inst-smp-1",
@@ -188,17 +256,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
         education_level: "SMP",
         is_active: true,
         created_at: new Date().toISOString(),
-      };
-
-      const superUser: User = {
-        id: "user-superadmin",
-        nip: "superadmin",
-        name: "Super Administrator (Pusat Yayasan)",
-        phone: "081100000000",
-        pin: "123000",
-        role: "SUPER_ADMIN",
-        avatar_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
-        is_active: true,
       };
 
       saveActiveToken(defaultInst.token_lembaga);

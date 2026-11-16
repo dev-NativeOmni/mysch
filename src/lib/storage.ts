@@ -2,12 +2,14 @@ import { isFirebaseConfigured, db } from "./firebase";
 import {
   collection,
   getDocs,
+  getDoc,
   doc,
   setDoc,
   deleteDoc,
   query,
   where,
 } from "firebase/firestore";
+import { hashSecret, SUPER_ADMIN_DEFAULT_HASH } from "./authUtils";
 import {
   Institution,
   User,
@@ -16,6 +18,7 @@ import {
   Subject,
   Schedule,
   JournalEntry,
+  SubstituteAssignment,
 } from "./types";
 import {
   INITIAL_INSTITUTIONS,
@@ -35,6 +38,7 @@ const STORAGE_KEYS = {
   STUDENTS: "jg_students",
   SCHEDULES: "jg_schedules",
   JOURNALS: "jg_journals",
+  SUBSTITUTIONS: "jg_substitutions",
   ACTIVE_TOKEN: "jg_active_token",
   SESSION: "jg_session",
 };
@@ -200,12 +204,45 @@ export async function deleteUser(userId: string): Promise<void> {
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(filtered));
 }
 
+export async function getUserById(userId: string): Promise<User | null> {
+  initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      const snap = await getDoc(doc(db, "users", userId));
+      if (snap.exists()) {
+        return { id: snap.id, ...snap.data() } as User;
+      }
+    } catch (e) {
+      console.warn("Firestore getUserById fallback to local:", e);
+    }
+  }
+  const raw = localStorage.getItem(STORAGE_KEYS.USERS);
+  const all: User[] = raw ? JSON.parse(raw) : INITIAL_USERS;
+  return all.find((u) => u.id === userId) || null;
+}
+
+export async function getSuperAdminUser(): Promise<User> {
+  const existing = await getUserById("user-superadmin");
+  if (existing) return existing;
+  return {
+    id: "user-superadmin",
+    nip: "superadmin",
+    name: "Super Administrator (Pusat Yayasan)",
+    phone: "081100000000",
+    pin: SUPER_ADMIN_DEFAULT_HASH,
+    role: "SUPER_ADMIN",
+    avatar_url:
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+    is_active: true,
+  };
+}
+
 export async function resetUserPin(userId: string, newPin: string): Promise<void> {
   initLocalStorage();
   const list = await getUsers();
   const user = list.find((u) => u.id === userId);
   if (user) {
-    user.pin = newPin;
+    user.pin = await hashSecret(newPin);
     await saveUser(user);
   }
 }
@@ -552,6 +589,75 @@ export async function saveStudentsBulk(
 }
 
 // ==========================================
+// 7B. PENUGASAN GURU INVAL (SUBSTITUTIONS)
+// ==========================================
+export async function getSubstitutions(
+  institutionId: string,
+  assignDate?: string
+): Promise<SubstituteAssignment[]> {
+  initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      const snap = await getDocs(
+        query(collection(db, "substitutions"), where("institution_id", "==", institutionId))
+      );
+      if (!snap.empty) {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as SubstituteAssignment));
+        return assignDate ? list.filter((s) => s.assign_date === assignDate) : list;
+      }
+    } catch (e) {
+      console.warn("Firestore getSubstitutions fallback to local:", e);
+    }
+  }
+  const raw = localStorage.getItem(STORAGE_KEYS.SUBSTITUTIONS);
+  const all: SubstituteAssignment[] = raw ? JSON.parse(raw) : [];
+  return all.filter(
+    (s) => s.institution_id === institutionId && (!assignDate || s.assign_date === assignDate)
+  );
+}
+
+export async function saveSubstitution(item: SubstituteAssignment): Promise<void> {
+  initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      await setDoc(doc(db, "substitutions", item.id), item);
+    } catch (e) {
+      console.warn("Firestore saveSubstitution error:", e);
+    }
+  }
+  const raw = localStorage.getItem(STORAGE_KEYS.SUBSTITUTIONS);
+  const all: SubstituteAssignment[] = raw ? JSON.parse(raw) : [];
+  const idx = all.findIndex(
+    (s) =>
+      s.id === item.id ||
+      (s.schedule_id === item.schedule_id &&
+        s.assign_date === item.assign_date &&
+        s.institution_id === item.institution_id)
+  );
+  if (idx >= 0) {
+    all[idx] = item;
+  } else {
+    all.push(item);
+  }
+  localStorage.setItem(STORAGE_KEYS.SUBSTITUTIONS, JSON.stringify(all));
+}
+
+export async function deleteSubstitution(id: string): Promise<void> {
+  initLocalStorage();
+  if (isFirebaseConfigured && db) {
+    try {
+      await deleteDoc(doc(db, "substitutions", id));
+    } catch (e) {
+      console.warn("Firestore deleteSubstitution error:", e);
+    }
+  }
+  const raw = localStorage.getItem(STORAGE_KEYS.SUBSTITUTIONS);
+  const all: SubstituteAssignment[] = raw ? JSON.parse(raw) : [];
+  const filtered = all.filter((s) => s.id !== id);
+  localStorage.setItem(STORAGE_KEYS.SUBSTITUTIONS, JSON.stringify(filtered));
+}
+
+// ==========================================
 // 8. TOKEN AKTIF & SESI LOKAL
 // ==========================================
 export function getSavedToken(): string | null {
@@ -577,7 +683,8 @@ export function getSavedSession(): { user: User; institution: Institution } | nu
 
 export function saveSession(user: User, institution: Institution): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify({ user, institution }));
+  const safeUser: User = { ...user, pin: "" };
+  localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify({ user: safeUser, institution }));
 }
 
 export function clearSession(): void {
