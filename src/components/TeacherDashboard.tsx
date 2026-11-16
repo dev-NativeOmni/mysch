@@ -313,13 +313,23 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       {/* 3. Daftar Jadwal Mengajar Hari Ini */}
       {todaySchedules.length > 0 && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-teal-600" /> Jadwal Hari Ini
-            </h3>
-            <span className="text-sm text-slate-500">
-              {filledTodayCount} dari {todaySchedules.length} sudah diisi
-            </span>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-teal-600" /> Jadwal Hari Ini
+              </h3>
+              <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-full">
+                {filledTodayCount} dari {todaySchedules.length} terisi ({Math.round((filledTodayCount / todaySchedules.length) * 100)}%)
+              </span>
+            </div>
+            <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-teal-600 transition-all duration-300"
+                style={{
+                  width: `${Math.round((filledTodayCount / todaySchedules.length) * 100)}%`,
+                }}
+              />
+            </div>
           </div>
 
           <div className="space-y-2.5">

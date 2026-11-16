@@ -59,6 +59,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
   // Daftar nama disimpan bersama ID sekolahnya, agar daftar lama tidak terpakai saat kode sekolah berganti
   const [loadedUsers, setLoadedUsers] = useState<{ institutionId: string; users: User[] } | null>(null);
   const [selectedUserId, setSelectedUserId] = useState("");
+  const [nameFilter, setNameFilter] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -137,6 +138,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
   const isLoadingUsers = Boolean(verifiedInstitution) && loadedUsers?.institutionId !== verifiedInstitution?.id;
   const institutionUsers =
     verifiedInstitution && loadedUsers?.institutionId === verifiedInstitution.id ? loadedUsers.users : [];
+  const filteredInstitutionUsers = nameFilter.trim()
+    ? institutionUsers.filter((u) =>
+        u.name.toLowerCase().includes(nameFilter.trim().toLowerCase())
+      )
+    : institutionUsers;
 
   // Submit Login Guru / Admin Lembaga
   const handleLogin = async (e?: React.FormEvent) => {
@@ -368,6 +374,27 @@ export const LoginView: React.FC<LoginViewProps> = ({
               <label htmlFor="user-select" className="block text-sm font-bold text-slate-800 mb-1.5">
                 2. Nama Anda
               </label>
+              {verifiedInstitution && !isLoadingUsers && institutionUsers.length > 8 && (
+                <input
+                  type="text"
+                  value={nameFilter}
+                  onChange={(e) => {
+                    const q = e.target.value;
+                    setNameFilter(q);
+                    if (q.trim()) {
+                      const matches = institutionUsers.filter((u) =>
+                        u.name.toLowerCase().includes(q.trim().toLowerCase())
+                      );
+                      if (matches.length === 1) {
+                        setSelectedUserId(matches[0].id);
+                        setErrorMsg("");
+                      }
+                    }
+                  }}
+                  placeholder="Cari cepat nama Anda (ketik beberapa huruf)..."
+                  className="w-full px-3.5 py-2 mb-2 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:bg-white"
+                />
+              )}
               <select
                 id="user-select"
                 value={selectedUserId}
@@ -384,9 +411,11 @@ export const LoginView: React.FC<LoginViewProps> = ({
                     ? "Isi Kode Sekolah dulu"
                     : isLoadingUsers
                     ? "Memuat daftar nama..."
+                    : filteredInstitutionUsers.length === 0
+                    ? "Nama tidak ditemukan"
                     : "— Pilih nama Anda —"}
                 </option>
-                {institutionUsers.map((u) => (
+                {filteredInstitutionUsers.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.name}
                     {ROLE_SUFFIX[u.role] || ""}

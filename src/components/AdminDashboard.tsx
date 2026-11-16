@@ -116,6 +116,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [scheduleClassFilter, setScheduleClassFilter] = useState<string>("all");
   const [scheduleTeacherFilter, setScheduleTeacherFilter] = useState<string>("all");
+  const [scheduleDayFilter, setScheduleDayFilter] = useState<string>("all");
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
+
+  const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast((prev) => (prev?.message === message ? null : prev));
+    }, 3500);
+  };
+
+  const getClassBadgeStyle = (className: string) => {
+    const upper = className.trim().toUpperCase();
+    if (upper.startsWith("XII")) return "text-indigo-800 bg-indigo-50 border-indigo-200";
+    if (upper.startsWith("XI")) return "text-sky-800 bg-sky-50 border-sky-200";
+    if (upper.startsWith("X")) return "text-teal-800 bg-teal-50 border-teal-200";
+    return "text-teal-800 bg-teal-50 border-teal-200";
+  };
   const [substitutions, setSubstitutions] = useState<SubstituteAssignment[]>([]);
   const [assigningInvalSchedule, setAssigningInvalSchedule] = useState<Schedule | null>(null);
   const [selectedInvalTeacherId, setSelectedInvalTeacherId] = useState("");
@@ -641,7 +661,7 @@ ${senderRole} - ${activeInstitution.name}`;
     );
 
     if (unfilled.length === 0) {
-      alert("Alhamdulillah! Seluruh jadwal pada hari ini sudah terisi lengkap oleh guru.");
+      showToast("Alhamdulillah! Seluruh jadwal pada hari ini sudah terisi lengkap oleh guru.", "success");
       return;
     }
 
@@ -733,10 +753,10 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
         onSwitchInstitution(updated);
       }
       onRefreshInstitutions();
-      alert(`Logo untuk ${inst.name} berhasil diperbarui!`);
+      showToast(`Logo untuk ${inst.name} berhasil diperbarui!`, "success");
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Gagal mengunggah logo.");
+      showToast(err.message || "Gagal mengunggah logo.", "error");
     }
   };
 
@@ -744,7 +764,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
     e.preventDefault();
     const cleanToken = newInstToken.trim().toUpperCase();
     if (!cleanToken) {
-      alert("Token Lembaga tidak boleh kosong.");
+      showToast("Token Lembaga tidak boleh kosong.", "error");
       return;
     }
 
@@ -774,7 +794,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
   const handleDeleteInstitution = async () => {
     if (!instToDelete) return;
     if (deleteInstConfirmInput.trim() !== instToDelete.name.trim()) {
-      alert("Nama lembaga tidak sesuai dengan konfirmasi.");
+      showToast("Nama lembaga tidak sesuai dengan konfirmasi.", "error");
       return;
     }
     await deleteInstitution(instToDelete.id);
@@ -1141,48 +1161,104 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          {/* Filter Hari */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setScheduleDayFilter("all")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                scheduleDayFilter === "all"
+                  ? "bg-teal-600 text-white shadow-xs"
+                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              Semua Hari
+            </button>
             {daysList.map((day) => {
-              const daySchedules = schedules.filter(
-                (s) =>
-                  s.day_of_week === day &&
-                  (scheduleClassFilter === "all" || s.class_id === scheduleClassFilter) &&
-                  (scheduleTeacherFilter === "all" || s.teacher_id === scheduleTeacherFilter)
-              );
+              const isToday = day === getTodayIndoDay();
               return (
-                <div
-                  key={day}
-                  className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col shadow-2xs"
+                <button
+                  key={`filter-${day}`}
+                  type="button"
+                  onClick={() => setScheduleDayFilter(day)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    scheduleDayFilter === day
+                      ? "bg-teal-600 text-white shadow-xs"
+                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
                 >
-                  <div className="bg-slate-50 px-3.5 py-2.5 border-b border-slate-200 flex items-center justify-between">
-                    <span className="font-extrabold text-xs text-slate-800">{day}</span>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-                      {daySchedules.length} Sesi
-                    </span>
-                  </div>
+                  <span>{day}</span>
+                  {isToday && (
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        scheduleDayFilter === day ? "bg-white" : "bg-emerald-500"
+                      }`}
+                      title="Hari ini"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
-                  <div className="p-2 space-y-2 flex-1 min-h-[140px] bg-slate-50/40">
-                    {daySchedules.length === 0 ? (
-                      <div className="h-full flex items-center justify-center p-4 text-center">
-                        <p className="text-xs text-slate-400 italic">Tidak ada jadwal</p>
-                      </div>
-                    ) : (
-                      daySchedules
-                        .sort((a, b) => a.start_period - b.start_period)
-                        .map((sch) => {
-                          const tName = getTeacherName(sch.teacher_id);
-                          const cName = getClassName(sch.class_id);
-                          const sName = getSubjectName(sch.subject_id);
+          <div
+            className={`grid grid-cols-1 gap-3 ${
+              scheduleDayFilter === "all" ? "md:grid-cols-5" : "md:grid-cols-1"
+            }`}
+          >
+            {daysList
+              .filter((day) => scheduleDayFilter === "all" || day === scheduleDayFilter)
+              .map((day) => {
+                const daySchedules = schedules.filter(
+                  (s) =>
+                    s.day_of_week === day &&
+                    (scheduleClassFilter === "all" || s.class_id === scheduleClassFilter) &&
+                    (scheduleTeacherFilter === "all" || s.teacher_id === scheduleTeacherFilter)
+                );
+                return (
+                  <div
+                    key={day}
+                    className="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col shadow-2xs"
+                  >
+                    <div className="bg-slate-50 px-3.5 py-2.5 border-b border-slate-200 flex items-center justify-between">
+                      <span className="font-extrabold text-xs text-slate-800">{day}</span>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                        {daySchedules.length} Sesi
+                      </span>
+                    </div>
 
-                          return (
-                            <div
-                              key={sch.id}
-                              className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-teal-400 shadow-2xs transition group relative"
-                            >
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="font-black text-xs text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
-                                  Kelas {cName}
-                                </span>
+                    <div
+                      className={`p-2 flex-1 min-h-[140px] bg-slate-50/40 ${
+                        scheduleDayFilter === "all"
+                          ? "space-y-2"
+                          : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2"
+                      }`}
+                    >
+                      {daySchedules.length === 0 ? (
+                        <div className="h-full flex items-center justify-center p-4 text-center col-span-full">
+                          <p className="text-xs text-slate-400 italic">Tidak ada jadwal</p>
+                        </div>
+                      ) : (
+                        daySchedules
+                          .sort((a, b) => a.start_period - b.start_period)
+                          .map((sch) => {
+                            const tName = getTeacherName(sch.teacher_id);
+                            const cName = getClassName(sch.class_id);
+                            const sName = getSubjectName(sch.subject_id);
+
+                            return (
+                              <div
+                                key={sch.id}
+                                className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-teal-400 shadow-2xs transition group relative"
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span
+                                    className={`font-black text-xs px-2 py-0.5 rounded-md border ${getClassBadgeStyle(
+                                      cName
+                                    )}`}
+                                  >
+                                    Kelas {cName}
+                                  </span>
                                 <div className="flex items-center gap-1">
                                   <span className="text-xs font-mono text-slate-500">
                                     {sch.start_time}-{sch.end_time}
@@ -2286,7 +2362,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(inst.token_lembaga);
-                        alert(`Token ${inst.token_lembaga} berhasil disalin!`);
+                        showToast(`Token ${inst.token_lembaga} berhasil disalin!`, "success");
                       }}
                       className="py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
                       title="Salin Token"
@@ -3191,7 +3267,7 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
                                 const compressed = await compressImage(file, 360, 0.85);
                                 setNewInstLogo(compressed);
                               } catch (err: any) {
-                                alert(err.message || "Gagal memproses gambar");
+                                showToast(err.message || "Gagal memproses gambar", "error");
                               }
                             }
                           }}
@@ -3306,6 +3382,29 @@ ${user.role === "HEADMASTER" ? "Kepala Sekolah" : "Admin"} - ${activeInstitution
           }
         }}
       />
+
+      {/* Toast Notifikasi Non-Blocking */}
+      {toast && (
+        <div
+          className={`fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold flex items-center gap-2.5 transition print:hidden ${
+            toast.type === "success"
+              ? "bg-emerald-600 text-white border-emerald-500"
+              : toast.type === "error"
+              ? "bg-rose-600 text-white border-rose-500"
+              : "bg-slate-900 text-white border-slate-700"
+          }`}
+        >
+          <span>{toast.message}</span>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            className="opacity-80 hover:opacity-100 cursor-pointer"
+            aria-label="Tutup notifikasi"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
