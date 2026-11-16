@@ -175,7 +175,10 @@ export async function saveUser(user: User): Promise<void> {
   initLocalStorage();
   if (isFirebaseConfigured && db) {
     try {
-      await setDoc(doc(db, "users", user.id), user);
+      const cleanUser = Object.fromEntries(
+        Object.entries(user).filter(([, v]) => v !== undefined)
+      );
+      await setDoc(doc(db, "users", user.id), cleanUser);
     } catch (e) {
       console.warn("Firestore write error:", e);
     }
