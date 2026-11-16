@@ -5,110 +5,140 @@ rules_version = '2';
 // ===============================================================
 //
 // Application: MySch (Jurnal Harian Guru & Presensi Multi-Lembaga)
-// Multi-tenancy architecture based on: institutions/{institutionId}
+// Auth Architecture: Static export on Firebase Spark Plan using
+//   client-side Institution Token + Name Picker + SHA-256 PIN
+//   (and TOTP 2FA for user-superadmin) without Firebase Email/Password Auth.
+//   Note: Because request.auth may be null, collection rules enforce
+//   strict schema, type, enum, and size validation on all writes.
 //
 // Collection: institutions
 // Document ID: {institutionId}
 // Fields:
-//   - token_lembaga: string (required, 2-50 chars, unique school lookup code, immutable)
+//   - id: string (optional, 1-100 chars, immutable if present)
+//   - token_lembaga: string (required, 2-50 chars)
 //   - name: string (required, 2-200 chars)
-//   - npsn: string (required, 4-30 chars, immutable)
-//   - education_level: string (required, e.g. SD, SMP, SMA, SMK, MI, MTs)
-//   - logo_url: string (optional, 0-1000 chars)
+//   - education_level: string (required, 'SD' | 'SMP' | 'SMA' | 'SMK' | 'MI' | 'MTs')
+//   - npsn: string (optional, 0-30 chars)
 //   - address: string (optional, 0-500 chars)
 //   - phone: string (optional, 0-30 chars)
+//   - logo_url: string (optional, 0-500000 chars, URL, emoji, or compressed base64)
 //   - is_active: bool (required)
-//   - created_at: timestamp (required, immutable)
+//   - created_at: string | timestamp (required, immutable if present)
 //
 // Collection: users
-// Document ID: {userId} (matches Firebase Auth UID)
+// Document ID: {userId}
 // Fields:
-//   - institution_id: string (required for non-SUPER_ADMIN, 1-100 chars, null or string for SUPER_ADMIN, immutable by owner)
-//   - nip: string (required, 1-50 chars, immutable by owner)
+//   - id: string (optional, 1-100 chars, immutable if present)
+//   - institution_id: string | null (required 1-100 chars for non-SUPER_ADMIN; optional/null/empty for SUPER_ADMIN)
+//   - nip: string (required, 1-50 chars)
 //   - name: string (required, 1-150 chars)
 //   - phone: string (optional, 0-30 chars)
-//   - role: string (required, 'SUPER_ADMIN' | 'ADMIN' | 'TEACHER' | 'HEADMASTER', immutable by owner)
-//   - is_active: bool (required, immutable by owner)
-//   - avatar_url: string (optional, 0-1000 chars)
+//   - pin: string (required, 0-128 chars, SHA-256 hash or 6-digit PIN)
+//   - role: string (required, 'SUPER_ADMIN' | 'ADMIN' | 'TEACHER' | 'HEADMASTER')
+//   - avatar_url: string (optional, 0-500000 chars, URL or compressed base64)
+//   - subject_name: string (optional, 0-200 chars)
+//   - subject_ids: list (optional, max 50 items)
+//   - is_active: bool (required)
+//   - totp_enabled: bool (optional)
+//   - totp_secret: string (optional, 0-128 chars)
 //   - email: string (optional, 0-150 chars)
-//   - created_at: timestamp (optional, immutable)
+//   - created_at: string | timestamp (optional, immutable if present)
 //
 // Collection: classes
 // Document ID: {classId}
 // Fields:
-//   - institution_id: string (required, 1-100 chars, immutable)
-//   - name: string (required, 1-100 chars, e.g. "VII-A")
-//   - grade_level: string (required, 1-30 chars, e.g. "7", "8", "10")
-//   - academic_year: string (required, 4-30 chars, e.g. "2026/2027")
+//   - id: string (optional, 1-100 chars, immutable if present)
+//   - institution_id: string (required, 1-100 chars, immutable if present)
+//   - name: string (required, 1-100 chars)
+//   - grade_level: int | string (required, int 1-20 or string 1-30 chars)
+//   - academic_year: string (required, 4-30 chars)
 //   - homeroom_teacher_id: string (optional, 0-100 chars)
-//   - created_at: timestamp (optional, immutable)
+//   - created_at: string | timestamp (optional, immutable if present)
 //
 // Collection: students
 // Document ID: {studentId}
 // Fields:
-//   - institution_id: string (required, 1-100 chars, immutable)
+//   - id: string (optional, 1-100 chars, immutable if present)
+//   - institution_id: string (required, 1-100 chars, immutable if present)
 //   - class_id: string (required, 1-100 chars)
 //   - nisn: string (required, 1-30 chars)
+//   - nipd: string (optional, 0-30 chars)
 //   - full_name: string (required, 1-150 chars)
 //   - gender: string (required, 'L' | 'P')
 //   - is_active: bool (required)
-//   - created_at: timestamp (optional, immutable)
+//   - created_at: string | timestamp (optional, immutable if present)
 //
 // Collection: subjects
 // Document ID: {subjectId}
 // Fields:
-//   - institution_id: string (required, 1-100 chars, immutable)
-//   - code: string (required, 1-30 chars, e.g. "MAT-01")
-//   - name: string (required, 1-150 chars, e.g. "Matematika")
-//   - category: string (required, 1-50 chars, e.g. "Wajib", "Pilihan", "Muatan Lokal")
-//   - created_at: timestamp (optional, immutable)
+//   - id: string (optional, 1-100 chars, immutable if present)
+//   - institution_id: string (required, 1-100 chars, immutable if present)
+//   - code: string (required, 1-30 chars)
+//   - name: string (required, 1-150 chars)
+//   - category: string (required, 'Wajib' | 'Pilihan' | 'Muatan Lokal')
+//   - created_at: string | timestamp (optional, immutable if present)
 //
 // Collection: schedules
 // Document ID: {scheduleId}
 // Fields:
-//   - institution_id: string (required, 1-100 chars, immutable)
-//   - teacher_id: string (required, 1-100 chars, user id of teacher)
+//   - id: string (optional, 1-100 chars, immutable if present)
+//   - institution_id: string (required, 1-100 chars, immutable if present)
+//   - teacher_id: string (required, 1-100 chars)
 //   - class_id: string (required, 1-100 chars)
 //   - subject_id: string (required, 1-100 chars)
-//   - day_of_week: string (required, 3-20 chars, e.g. "Senin")
+//   - day_of_week: string (required, 'Senin' | 'Selasa' | 'Rabu' | 'Kamis' | 'Jumat' | 'Sabtu')
 //   - start_period: int (required, 0-20)
-//   - end_period: int (required, 0-20, >= start_period)
-//   - start_time: string (required, 4-10 chars, HH:mm)
-//   - end_time: string (required, 4-10 chars, HH:mm)
+//   - end_period: int (required, >= start_period and <= 20)
+//   - start_time: string (required, 4-10 chars)
+//   - end_time: string (required, 4-10 chars)
 //   - academic_year: string (required, 4-30 chars)
 //   - semester: int (required, 1 or 2)
-//   - created_at: timestamp (optional, immutable)
+//   - created_at: string | timestamp (optional, immutable if present)
 //
 // Collection: journals
 // Document ID: {journalId}
 // Fields:
-//   - institution_id: string (required, 1-100 chars, immutable)
-//   - schedule_id: string (required, 1-100 chars, immutable)
-//   - actual_teacher_id: string (required, 1-100 chars, immutable by teacher)
-//   - entry_date: string | timestamp (required, 8-30 chars date string or timestamp)
-//   - learning_objective: string (optional, 0-2000 chars)
+//   - id: string (optional, 1-100 chars, immutable if present)
+//   - institution_id: string (required, 1-100 chars, immutable if present)
+//   - schedule_id: string (required, 1-100 chars)
+//   - actual_teacher_id: string (required, 1-100 chars)
+//   - teacher_name: string (required, 1-150 chars)
+//   - class_name: string (required, 1-100 chars)
+//   - subject_name: string (required, 1-150 chars)
+//   - entry_date: string | timestamp (required, 8-30 chars or timestamp)
+//   - start_time: string (required, 4-10 chars)
+//   - end_time: string (required, 4-10 chars)
+//   - start_period: int (required, 0-20)
+//   - end_period: int (required, >= start_period and <= 20)
+//   - learning_objective: string (required, 0-2000 chars)
 //   - topic_materials: string (required, 1-2000 chars)
-//   - learning_activities: string (optional, 0-3000 chars)
+//   - learning_activities: list (required, max 50 items)
 //   - student_present_count: int (required, 0-500)
 //   - student_sick_count: int (required, 0-500)
 //   - student_permit_count: int (required, 0-500)
 //   - student_absent_count: int (required, 0-500)
-//   - student_dispensation_count: int (optional, 0-500)
+//   - attendance_records: list (required, max 100 items)
 //   - teacher_notes: string (optional, 0-3000 chars)
-//   - documentation_url: string (optional, 0-1000 chars)
-//   - is_locked: bool (required, lock status, immutable by teacher)
-//   - submitted_at: timestamp (required, immutable)
-//   - created_at: timestamp (optional, immutable)
+//   - photo_url: string (optional, 0-500000 chars, URL or compressed base64)
+//   - completion_rate: number (optional, 0-100)
+//   - is_substitute: bool (optional)
+//   - original_teacher_id: string (optional, 0-100 chars)
+//   - original_teacher_name: string (optional, 0-150 chars)
+//   - is_locked: bool (required)
+//   - submitted_at: string | timestamp (required, 1-50 chars or timestamp)
 //
-// Collection: attendances
-// Document ID: {attendanceId}
+// Collection: substitutions
+// Document ID: {subId}
 // Fields:
-//   - journal_id: string (required, 1-100 chars, immutable)
-//   - student_id: string (required, 1-100 chars, immutable)
-//   - status: string (required, 'H' | 'S' | 'I' | 'A' | 'D')
-//   - remarks: string (optional, 0-500 chars)
-//   - institution_id: string (optional, 0-100 chars, immutable)
-//   - created_at: timestamp (optional, immutable)
+//   - id: string (optional, 1-100 chars, immutable if present)
+//   - institution_id: string (required, 1-100 chars, immutable if present)
+//   - schedule_id: string (required, 1-100 chars)
+//   - original_teacher_id: string (required, 1-100 chars)
+//   - substitute_teacher_id: string (required, 1-100 chars)
+//   - assign_date: string (required, 8-30 chars)
+//   - reason: string (optional, 0-500 chars)
+//   - created_by: string (required, 1-100 chars)
+//   - created_at: string | timestamp (required, 1-50 chars or timestamp, immutable if present)
 //
 // ===============================================================
 
@@ -116,136 +146,83 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ===============================================================
-    // Core Helper Functions
+    // Core Auth & Ownership Helpers
+    // (Retained for future Firebase Anonymous/Custom Auth hardening)
     // ===============================================================
 
-    // Check if the user is authenticated with Firebase Auth
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Check if authenticated user matches target userId
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Check custom claims existence in auth token
-    function hasCustomClaim(claim) {
-      return isAuthenticated() && request.auth.token != null && claim in request.auth.token;
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == request.auth.uid;
     }
 
-    // Safe retrieval of user document data from users/{uid}
-    function getUserDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
-
-    // Safe retrieval of user data (returns null if document does not exist)
-    function getUserData() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? getUserDoc().data : null;
-    }
-
-    // Resolve user role with custom claims priority, falling back to users/{uid} profile
-    function getUserRole() {
-      return hasCustomClaim('role')
-        ? request.auth.token.role
-        : (getUserData() != null && 'role' in getUserData() ? getUserData().role : null);
-    }
-
-    // Resolve user's institution ID with custom claims priority, falling back to users/{uid} profile
-    function getUserInstitutionId() {
-      return hasCustomClaim('institution_id')
-        ? request.auth.token.institution_id
-        : (getUserData() != null && 'institution_id' in getUserData() ? getUserData().institution_id : null);
-    }
-
-    // Resolve user's active status
-    function isUserActive() {
-      return hasCustomClaim('is_active')
-        ? request.auth.token.is_active == true
-        : (getUserData() != null && 'is_active' in getUserData() ? getUserData().is_active == true : false);
-    }
-
-    // Check if current user is Super Administrator (system-wide full access)
-    function isSuperAdmin() {
-      return isAuthenticated() && (
-        (hasCustomClaim('admin') && request.auth.token.admin == true) ||
-        getUserRole() == 'SUPER_ADMIN'
-      );
-    }
-
-    // Check if current user is Admin Lembaga (within their active institution)
-    function isAdmin() {
-      return isAuthenticated() && isUserActive() && getUserRole() == 'ADMIN';
-    }
-
-    // Check if current user is Kepala Sekolah (within their active institution)
-    function isHeadmaster() {
-      return isAuthenticated() && isUserActive() && getUserRole() == 'HEADMASTER';
-    }
-
-    // Check if current user is either Admin Lembaga or Kepala Sekolah
-    function isAdminOrHeadmaster() {
-      return isAdmin() || isHeadmaster();
-    }
-
-    // Check if current user is Guru (Teacher)
-    function isTeacher() {
-      return isAuthenticated() && isUserActive() && getUserRole() == 'TEACHER';
-    }
-
-    // Check if user's registered institution matches the target institution ID
-    function isSameInstitution(targetInstId) {
-      return targetInstId != null && getUserInstitutionId() != null && getUserInstitutionId() == targetInstId;
-    }
-
-    // Check if user has management permissions (Super Admin or Admin/Headmaster of target institution)
-    function isAdminOrHeadmasterOf(targetInstId) {
-      return isSuperAdmin() || (isAdminOrHeadmaster() && isSameInstitution(targetInstId));
-    }
-
-    // Check if user is an active member of target institution (Super Admin, Admin, Headmaster, or Teacher)
-    function isInstitutionMember(targetInstId) {
-      return isSuperAdmin() || ((isAdminOrHeadmaster() || isTeacher()) && isSameInstitution(targetInstId));
-    }
-
-    // Fetch schedule document safely
-    function getSchedule(scheduleId) {
-      return get(/databases/$(database)/documents/schedules/$(scheduleId)).data;
-    }
-
-    // Fetch journal document safely
-    function getJournal(journalId) {
-      return get(/databases/$(database)/documents/journals/$(journalId)).data;
+    function uidNotModified() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == resource.data.uid;
     }
 
     // ===============================================================
     // General Validation Helper Functions
     // ===============================================================
 
-    // Validate that request data contains all required keys
     function hasRequiredFields(fields) {
       return request.resource.data.keys().hasAll(fields);
     }
 
-    // Validate that request data contains only permitted keys (strict schema enforcement)
     function hasOnlyAllowedFields(fields) {
       return request.resource.data.keys().hasOnly(fields);
     }
 
-    // Validate that specified immutable fields have not been modified during update
-    function areImmutableFieldsUnchanged(fields) {
-      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    function isFieldUnchangedIfPresent(field) {
+      return !(field in resource.data) ||
+        (field in request.resource.data && request.resource.data[field] == resource.data[field]);
     }
 
-    // Validate optional string field (must be either absent, null, or a valid string bounded by length)
-    function isValidOptionalString(field, minLen, maxLen) {
-      return !(field in request.resource.data) ||
-        request.resource.data[field] == null ||
+    function isValidRequiredString(data, field, minLen, maxLen) {
+      return (field in data) &&
+        data[field] is string &&
+        data[field].size() >= minLen &&
+        data[field].size() <= maxLen;
+    }
+
+    function isValidOptionalString(data, field, minLen, maxLen) {
+      return !(field in data) ||
+        data[field] == null ||
         (
-          request.resource.data[field] is string &&
-          request.resource.data[field].size() >= minLen &&
-          request.resource.data[field].size() <= maxLen
+          data[field] is string &&
+          data[field].size() >= minLen &&
+          data[field].size() <= maxLen
         );
+    }
+
+    function isValidOptionalBool(data, field) {
+      return !(field in data) ||
+        data[field] == null ||
+        data[field] is bool;
+    }
+
+    function isValidDateOrTimestamp(val) {
+      return (val is string && val.size() >= 1 && val.size() <= 50) ||
+        val is timestamp;
+    }
+
+    function isValidOptionalDateOrTimestamp(data, field) {
+      return !(field in data) ||
+        data[field] == null ||
+        isValidDateOrTimestamp(data[field]);
+    }
+
+    function isValidOptionalList(data, field, maxSize) {
+      return !(field in data) ||
+        data[field] == null ||
+        (data[field] is list && data[field].size() <= maxSize);
     }
 
     // ===============================================================
@@ -254,123 +231,202 @@ service cloud.firestore {
 
     // 1. Institution Entity Validator
     function isValidInstitution(data) {
-      return hasOnlyAllowedFields(['token_lembaga', 'name', 'npsn', 'education_level', 'logo_url', 'address', 'phone', 'is_active', 'created_at']) &&
-        hasRequiredFields(['token_lembaga', 'name', 'npsn', 'education_level', 'is_active', 'created_at']) &&
-        data.token_lembaga is string && data.token_lembaga.size() >= 2 && data.token_lembaga.size() <= 50 &&
-        data.name is string && data.name.size() >= 2 && data.name.size() <= 200 &&
-        data.npsn is string && data.npsn.size() >= 4 && data.npsn.size() <= 30 &&
-        data.education_level is string && data.education_level.size() >= 2 && data.education_level.size() <= 30 &&
-        isValidOptionalString('logo_url', 0, 1000) &&
-        isValidOptionalString('address', 0, 500) &&
-        isValidOptionalString('phone', 0, 30) &&
+      return hasOnlyAllowedFields([
+          'id', 'token_lembaga', 'name', 'education_level', 'npsn',
+          'address', 'phone', 'logo_url', 'is_active', 'created_at'
+        ]) &&
+        hasRequiredFields(['token_lembaga', 'name', 'education_level', 'is_active', 'created_at']) &&
+        isValidOptionalString(data, 'id', 1, 100) &&
+        isValidRequiredString(data, 'token_lembaga', 2, 50) &&
+        isValidRequiredString(data, 'name', 2, 200) &&
+        data.education_level in ['SD', 'SMP', 'SMA', 'SMK', 'MI', 'MTs'] &&
+        isValidOptionalString(data, 'npsn', 0, 30) &&
+        isValidOptionalString(data, 'address', 0, 500) &&
+        isValidOptionalString(data, 'phone', 0, 30) &&
+        isValidOptionalString(data, 'logo_url', 0, 500000) &&
         data.is_active is bool &&
-        data.created_at is timestamp;
+        isValidDateOrTimestamp(data.created_at);
     }
 
     // 2. User Entity Validator
     function isValidUser(data) {
-      return hasOnlyAllowedFields(['institution_id', 'nip', 'name', 'phone', 'role', 'is_active', 'avatar_url', 'created_at', 'email']) &&
-        hasRequiredFields(['institution_id', 'nip', 'name', 'role', 'is_active']) &&
+      return hasOnlyAllowedFields([
+          'id', 'institution_id', 'nip', 'name', 'phone', 'pin', 'role',
+          'avatar_url', 'subject_name', 'subject_ids', 'is_active',
+          'totp_enabled', 'totp_secret', 'email', 'created_at'
+        ]) &&
+        hasRequiredFields(['nip', 'name', 'pin', 'role', 'is_active']) &&
+        isValidOptionalString(data, 'id', 1, 100) &&
         data.role in ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'HEADMASTER'] &&
-        (data.role == 'SUPER_ADMIN'
-          ? (data.institution_id == null || (data.institution_id is string && data.institution_id.size() <= 100))
-          : (data.institution_id is string && data.institution_id.size() >= 1 && data.institution_id.size() <= 100)) &&
-        data.nip is string && data.nip.size() >= 1 && data.nip.size() <= 50 &&
-        data.name is string && data.name.size() >= 1 && data.name.size() <= 150 &&
-        isValidOptionalString('phone', 0, 30) &&
-        isValidOptionalString('avatar_url', 0, 1000) &&
-        isValidOptionalString('email', 0, 150) &&
+        (
+          data.role == 'SUPER_ADMIN'
+            ? (!('institution_id' in data) || data.institution_id == null || (data.institution_id is string && data.institution_id.size() <= 100))
+            : isValidRequiredString(data, 'institution_id', 1, 100)
+        ) &&
+        isValidRequiredString(data, 'nip', 1, 50) &&
+        isValidRequiredString(data, 'name', 1, 150) &&
+        isValidOptionalString(data, 'phone', 0, 30) &&
+        isValidRequiredString(data, 'pin', 0, 128) &&
+        isValidOptionalString(data, 'avatar_url', 0, 500000) &&
+        isValidOptionalString(data, 'subject_name', 0, 200) &&
+        isValidOptionalList(data, 'subject_ids', 50) &&
         data.is_active is bool &&
-        (!('created_at' in data) || data.created_at is timestamp);
+        isValidOptionalBool(data, 'totp_enabled') &&
+        isValidOptionalString(data, 'totp_secret', 0, 128) &&
+        isValidOptionalString(data, 'email', 0, 150) &&
+        isValidOptionalDateOrTimestamp(data, 'created_at');
     }
 
     // 3. Class Entity Validator
     function isValidClass(data) {
-      return hasOnlyAllowedFields(['institution_id', 'name', 'grade_level', 'academic_year', 'homeroom_teacher_id', 'created_at']) &&
+      return hasOnlyAllowedFields([
+          'id', 'institution_id', 'name', 'grade_level',
+          'academic_year', 'homeroom_teacher_id', 'created_at'
+        ]) &&
         hasRequiredFields(['institution_id', 'name', 'grade_level', 'academic_year']) &&
-        data.institution_id is string && data.institution_id.size() >= 1 && data.institution_id.size() <= 100 &&
-        data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
-        data.grade_level is string && data.grade_level.size() >= 1 && data.grade_level.size() <= 30 &&
-        data.academic_year is string && data.academic_year.size() >= 4 && data.academic_year.size() <= 30 &&
-        isValidOptionalString('homeroom_teacher_id', 0, 100) &&
-        (!('created_at' in data) || data.created_at is timestamp);
+        isValidOptionalString(data, 'id', 1, 100) &&
+        isValidRequiredString(data, 'institution_id', 1, 100) &&
+        isValidRequiredString(data, 'name', 1, 100) &&
+        (
+          (data.grade_level is int && data.grade_level >= 1 && data.grade_level <= 20) ||
+          (data.grade_level is string && data.grade_level.size() >= 1 && data.grade_level.size() <= 30)
+        ) &&
+        isValidRequiredString(data, 'academic_year', 4, 30) &&
+        isValidOptionalString(data, 'homeroom_teacher_id', 0, 100) &&
+        isValidOptionalDateOrTimestamp(data, 'created_at');
     }
 
     // 4. Student Entity Validator
     function isValidStudent(data) {
-      return hasOnlyAllowedFields(['institution_id', 'class_id', 'nisn', 'full_name', 'gender', 'is_active', 'created_at']) &&
+      return hasOnlyAllowedFields([
+          'id', 'institution_id', 'class_id', 'nisn', 'nipd',
+          'full_name', 'gender', 'is_active', 'created_at'
+        ]) &&
         hasRequiredFields(['institution_id', 'class_id', 'nisn', 'full_name', 'gender', 'is_active']) &&
-        data.institution_id is string && data.institution_id.size() >= 1 && data.institution_id.size() <= 100 &&
-        data.class_id is string && data.class_id.size() >= 1 && data.class_id.size() <= 100 &&
-        data.nisn is string && data.nisn.size() >= 1 && data.nisn.size() <= 30 &&
-        data.full_name is string && data.full_name.size() >= 1 && data.full_name.size() <= 150 &&
+        isValidOptionalString(data, 'id', 1, 100) &&
+        isValidRequiredString(data, 'institution_id', 1, 100) &&
+        isValidRequiredString(data, 'class_id', 1, 100) &&
+        isValidRequiredString(data, 'nisn', 1, 30) &&
+        isValidOptionalString(data, 'nipd', 0, 30) &&
+        isValidRequiredString(data, 'full_name', 1, 150) &&
         data.gender in ['L', 'P'] &&
         data.is_active is bool &&
-        (!('created_at' in data) || data.created_at is timestamp);
+        isValidOptionalDateOrTimestamp(data, 'created_at');
     }
 
     // 5. Subject Entity Validator
     function isValidSubject(data) {
-      return hasOnlyAllowedFields(['institution_id', 'code', 'name', 'category', 'created_at']) &&
+      return hasOnlyAllowedFields([
+          'id', 'institution_id', 'code', 'name', 'category', 'created_at'
+        ]) &&
         hasRequiredFields(['institution_id', 'code', 'name', 'category']) &&
-        data.institution_id is string && data.institution_id.size() >= 1 && data.institution_id.size() <= 100 &&
-        data.code is string && data.code.size() >= 1 && data.code.size() <= 30 &&
-        data.name is string && data.name.size() >= 1 && data.name.size() <= 150 &&
-        data.category is string && data.category.size() >= 1 && data.category.size() <= 50 &&
-        (!('created_at' in data) || data.created_at is timestamp);
+        isValidOptionalString(data, 'id', 1, 100) &&
+        isValidRequiredString(data, 'institution_id', 1, 100) &&
+        isValidRequiredString(data, 'code', 1, 30) &&
+        isValidRequiredString(data, 'name', 1, 150) &&
+        data.category in ['Wajib', 'Pilihan', 'Muatan Lokal'] &&
+        isValidOptionalDateOrTimestamp(data, 'created_at');
     }
 
     // 6. Schedule Entity Validator
     function isValidSchedule(data) {
-      return hasOnlyAllowedFields(['institution_id', 'teacher_id', 'class_id', 'subject_id', 'day_of_week', 'start_period', 'end_period', 'start_time', 'end_time', 'academic_year', 'semester', 'created_at']) &&
-        hasRequiredFields(['institution_id', 'teacher_id', 'class_id', 'subject_id', 'day_of_week', 'start_period', 'end_period', 'start_time', 'end_time', 'academic_year', 'semester']) &&
-        data.institution_id is string && data.institution_id.size() >= 1 && data.institution_id.size() <= 100 &&
-        data.teacher_id is string && data.teacher_id.size() >= 1 && data.teacher_id.size() <= 100 &&
-        data.class_id is string && data.class_id.size() >= 1 && data.class_id.size() <= 100 &&
-        data.subject_id is string && data.subject_id.size() >= 1 && data.subject_id.size() <= 100 &&
-        data.day_of_week is string && data.day_of_week.size() >= 3 && data.day_of_week.size() <= 20 &&
+      return hasOnlyAllowedFields([
+          'id', 'institution_id', 'teacher_id', 'class_id', 'subject_id',
+          'day_of_week', 'start_period', 'end_period', 'start_time',
+          'end_time', 'academic_year', 'semester', 'created_at'
+        ]) &&
+        hasRequiredFields([
+          'institution_id', 'teacher_id', 'class_id', 'subject_id',
+          'day_of_week', 'start_period', 'end_period', 'start_time',
+          'end_time', 'academic_year', 'semester'
+        ]) &&
+        isValidOptionalString(data, 'id', 1, 100) &&
+        isValidRequiredString(data, 'institution_id', 1, 100) &&
+        isValidRequiredString(data, 'teacher_id', 1, 100) &&
+        isValidRequiredString(data, 'class_id', 1, 100) &&
+        isValidRequiredString(data, 'subject_id', 1, 100) &&
+        data.day_of_week in ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] &&
         data.start_period is int && data.start_period >= 0 && data.start_period <= 20 &&
         data.end_period is int && data.end_period >= data.start_period && data.end_period <= 20 &&
-        data.start_time is string && data.start_time.size() >= 4 && data.start_time.size() <= 10 &&
-        data.end_time is string && data.end_time.size() >= 4 && data.end_time.size() <= 10 &&
-        data.academic_year is string && data.academic_year.size() >= 4 && data.academic_year.size() <= 30 &&
+        isValidRequiredString(data, 'start_time', 4, 10) &&
+        isValidRequiredString(data, 'end_time', 4, 10) &&
+        isValidRequiredString(data, 'academic_year', 4, 30) &&
         data.semester is int && (data.semester == 1 || data.semester == 2) &&
-        (!('created_at' in data) || data.created_at is timestamp);
+        isValidOptionalDateOrTimestamp(data, 'created_at');
     }
 
     // 7. Journal Entity Validator
     function isValidJournal(data) {
-      return hasOnlyAllowedFields(['institution_id', 'schedule_id', 'actual_teacher_id', 'entry_date', 'learning_objective', 'topic_materials', 'learning_activities', 'student_present_count', 'student_sick_count', 'student_permit_count', 'student_absent_count', 'student_dispensation_count', 'teacher_notes', 'documentation_url', 'is_locked', 'submitted_at', 'created_at']) &&
-        hasRequiredFields(['institution_id', 'schedule_id', 'actual_teacher_id', 'entry_date', 'topic_materials', 'student_present_count', 'student_sick_count', 'student_permit_count', 'student_absent_count', 'is_locked', 'submitted_at']) &&
-        data.institution_id is string && data.institution_id.size() >= 1 && data.institution_id.size() <= 100 &&
-        data.schedule_id is string && data.schedule_id.size() >= 1 && data.schedule_id.size() <= 100 &&
-        data.actual_teacher_id is string && data.actual_teacher_id.size() >= 1 && data.actual_teacher_id.size() <= 100 &&
-        ((data.entry_date is string && data.entry_date.size() >= 8 && data.entry_date.size() <= 30) || data.entry_date is timestamp) &&
-        isValidOptionalString('learning_objective', 0, 2000) &&
-        data.topic_materials is string && data.topic_materials.size() >= 1 && data.topic_materials.size() <= 2000 &&
-        isValidOptionalString('learning_activities', 0, 3000) &&
+      return hasOnlyAllowedFields([
+          'id', 'institution_id', 'schedule_id', 'actual_teacher_id',
+          'teacher_name', 'class_name', 'subject_name', 'entry_date',
+          'start_time', 'end_time', 'start_period', 'end_period',
+          'learning_objective', 'topic_materials', 'learning_activities',
+          'student_present_count', 'student_sick_count',
+          'student_permit_count', 'student_absent_count',
+          'attendance_records', 'teacher_notes', 'photo_url',
+          'completion_rate', 'is_substitute', 'original_teacher_id',
+          'original_teacher_name', 'is_locked', 'submitted_at'
+        ]) &&
+        hasRequiredFields([
+          'institution_id', 'schedule_id', 'actual_teacher_id',
+          'teacher_name', 'class_name', 'subject_name', 'entry_date',
+          'start_time', 'end_time', 'start_period', 'end_period',
+          'learning_objective', 'topic_materials', 'learning_activities',
+          'student_present_count', 'student_sick_count',
+          'student_permit_count', 'student_absent_count',
+          'attendance_records', 'is_locked', 'submitted_at'
+        ]) &&
+        isValidOptionalString(data, 'id', 1, 100) &&
+        isValidRequiredString(data, 'institution_id', 1, 100) &&
+        isValidRequiredString(data, 'schedule_id', 1, 100) &&
+        isValidRequiredString(data, 'actual_teacher_id', 1, 100) &&
+        isValidRequiredString(data, 'teacher_name', 1, 150) &&
+        isValidRequiredString(data, 'class_name', 1, 100) &&
+        isValidRequiredString(data, 'subject_name', 1, 150) &&
+        isValidDateOrTimestamp(data.entry_date) &&
+        isValidRequiredString(data, 'start_time', 4, 10) &&
+        isValidRequiredString(data, 'end_time', 4, 10) &&
+        data.start_period is int && data.start_period >= 0 && data.start_period <= 20 &&
+        data.end_period is int && data.end_period >= data.start_period && data.end_period <= 20 &&
+        isValidRequiredString(data, 'learning_objective', 0, 2000) &&
+        isValidRequiredString(data, 'topic_materials', 1, 2000) &&
+        data.learning_activities is list && data.learning_activities.size() <= 50 &&
         data.student_present_count is int && data.student_present_count >= 0 && data.student_present_count <= 500 &&
         data.student_sick_count is int && data.student_sick_count >= 0 && data.student_sick_count <= 500 &&
         data.student_permit_count is int && data.student_permit_count >= 0 && data.student_permit_count <= 500 &&
         data.student_absent_count is int && data.student_absent_count >= 0 && data.student_absent_count <= 500 &&
-        (!('student_dispensation_count' in data) || (data.student_dispensation_count is int && data.student_dispensation_count >= 0 && data.student_dispensation_count <= 500)) &&
-        isValidOptionalString('teacher_notes', 0, 3000) &&
-        isValidOptionalString('documentation_url', 0, 1000) &&
+        data.attendance_records is list && data.attendance_records.size() <= 100 &&
+        isValidOptionalString(data, 'teacher_notes', 0, 3000) &&
+        isValidOptionalString(data, 'photo_url', 0, 500000) &&
+        (!('completion_rate' in data) || data.completion_rate == null || (data.completion_rate is number && data.completion_rate >= 0 && data.completion_rate <= 100)) &&
+        isValidOptionalBool(data, 'is_substitute') &&
+        isValidOptionalString(data, 'original_teacher_id', 0, 100) &&
+        isValidOptionalString(data, 'original_teacher_name', 0, 150) &&
         data.is_locked is bool &&
-        data.submitted_at is timestamp &&
-        (!('created_at' in data) || data.created_at is timestamp);
+        isValidDateOrTimestamp(data.submitted_at);
     }
 
-    // 8. Attendance Entity Validator
-    function isValidAttendance(data) {
-      return hasOnlyAllowedFields(['journal_id', 'student_id', 'status', 'remarks', 'institution_id', 'created_at']) &&
-        hasRequiredFields(['journal_id', 'student_id', 'status']) &&
-        data.journal_id is string && data.journal_id.size() >= 1 && data.journal_id.size() <= 100 &&
-        data.student_id is string && data.student_id.size() >= 1 && data.student_id.size() <= 100 &&
-        data.status in ['H', 'S', 'I', 'A', 'D'] &&
-        isValidOptionalString('remarks', 0, 500) &&
-        isValidOptionalString('institution_id', 0, 100) &&
-        (!('created_at' in data) || data.created_at is timestamp);
+    // 8. Substitute Assignment Entity Validator
+    function isValidSubstitution(data) {
+      return hasOnlyAllowedFields([
+          'id', 'institution_id', 'schedule_id', 'original_teacher_id',
+          'substitute_teacher_id', 'assign_date', 'reason',
+          'created_by', 'created_at'
+        ]) &&
+        hasRequiredFields([
+          'institution_id', 'schedule_id', 'original_teacher_id',
+          'substitute_teacher_id', 'assign_date', 'created_by', 'created_at'
+        ]) &&
+        isValidOptionalString(data, 'id', 1, 100) &&
+        isValidRequiredString(data, 'institution_id', 1, 100) &&
+        isValidRequiredString(data, 'schedule_id', 1, 100) &&
+        isValidRequiredString(data, 'original_teacher_id', 1, 100) &&
+        isValidRequiredString(data, 'substitute_teacher_id', 1, 100) &&
+        isValidRequiredString(data, 'assign_date', 8, 30) &&
+        isValidOptionalString(data, 'reason', 0, 500) &&
+        isValidRequiredString(data, 'created_by', 1, 100) &&
+        isValidDateOrTimestamp(data.created_at);
     }
 
     // ===============================================================
@@ -382,379 +438,89 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // ---------------------------------------------------------------
-    // 1. Institutions Collection: institutions/{institutionId}
-    // ---------------------------------------------------------------
+    // 1. Institutions Collection
     match /institutions/{institutionId} {
-      // Public read for institution lookup by token (token_lembaga) during login
       allow read: if true;
-
-      // Only Super Admin can register new institutions
-      allow create: if isSuperAdmin() && isValidInstitution(request.resource.data);
-
-      // Super Admin has full update access.
-      // Admin Lembaga can update details (name, logo, phone, address) of their own institution,
-      // but cannot modify token_lembaga, npsn, or created_at.
-      allow update: if isValidInstitution(request.resource.data) && (
-        isSuperAdmin() ||
-        (
-          isAdminOrHeadmasterOf(institutionId) &&
-          areImmutableFieldsUnchanged(['token_lembaga', 'npsn', 'created_at'])
-        )
-      );
-
-      // Only Super Admin can delete an institution
-      allow delete: if isSuperAdmin();
+      allow create: if isValidInstitution(request.resource.data);
+      allow update: if isValidInstitution(request.resource.data) &&
+        isFieldUnchangedIfPresent('id') &&
+        isFieldUnchangedIfPresent('created_at');
+      allow delete: if true;
     }
 
-    // ---------------------------------------------------------------
-    // 2. Users Collection: users/{userId}
-    // ---------------------------------------------------------------
+    // 2. Users Collection
     match /users/{userId} {
-      // Read access:
-      // - Users can read their own profile
-      // - Super Admin can read all profiles
-      // - Admin Lembaga & Kepala Sekolah can read all user profiles in their institution
-      // Prevents blanket read and PII leakage
-      allow read: if isAuthenticated() && (
-        isOwner(userId) ||
-        isSuperAdmin() ||
-        (isAdminOrHeadmaster() && resource.data.institution_id == getUserInstitutionId())
-      );
-
-      // Create access:
-      // - Super Admin can create any user
-      // - Admin Lembaga can create users within their own institution (role cannot be SUPER_ADMIN)
-      allow create: if isValidUser(request.resource.data) && (
-        isSuperAdmin() ||
-        (
-          isAdmin() &&
-          request.resource.data.institution_id == getUserInstitutionId() &&
-          request.resource.data.role in ['ADMIN', 'TEACHER', 'HEADMASTER']
-        )
-      );
-
-      // Update access:
-      // - Super Admin can update any user
-      // - Admin Lembaga can update users within their institution (cannot promote to SUPER_ADMIN)
-      // - Profile owner can update non-privileged personal info, but CANNOT modify role, institution_id, is_active, or nip
-      allow update: if isValidUser(request.resource.data) && (
-        isSuperAdmin() ||
-        (
-          isAdmin() &&
-          resource.data.institution_id == getUserInstitutionId() &&
-          request.resource.data.institution_id == getUserInstitutionId() &&
-          resource.data.role != 'SUPER_ADMIN' &&
-          request.resource.data.role in ['ADMIN', 'TEACHER', 'HEADMASTER']
-        ) ||
-        (
-          isOwner(userId) &&
-          areImmutableFieldsUnchanged(['role', 'institution_id', 'is_active', 'nip', 'created_at'])
-        )
-      );
-
-      // Delete access:
-      // - Super Admin can delete any user
-      // - Admin Lembaga can delete users within their institution (cannot delete SUPER_ADMIN)
-      allow delete: if isSuperAdmin() || (
-        isAdmin() &&
-        resource.data.institution_id == getUserInstitutionId() &&
-        resource.data.role != 'SUPER_ADMIN'
-      );
+      allow read: if true;
+      allow create: if isValidUser(request.resource.data);
+      allow update: if isValidUser(request.resource.data) &&
+        isFieldUnchangedIfPresent('id') &&
+        isFieldUnchangedIfPresent('created_at');
+      allow delete: if true;
     }
 
-    // ---------------------------------------------------------------
-    // 3. Classes Collection: classes/{classId}
-    // ---------------------------------------------------------------
+    // 3. Classes Collection
     match /classes/{classId} {
-      // Read: Institution members (Admin, Headmaster, Teachers) and Super Admin
-      allow read: if isInstitutionMember(resource.data.institution_id);
-
-      // Create: Admin Lembaga within their institution, or Super Admin
-      allow create: if isValidClass(request.resource.data) && (
-        isSuperAdmin() ||
-        (isAdmin() && isSameInstitution(request.resource.data.institution_id))
-      );
-
-      // Update: Admin Lembaga within their institution (institution_id immutable), or Super Admin
-      allow update: if isValidClass(request.resource.data) && (
-        isSuperAdmin() ||
-        (
-          isAdmin() &&
-          isSameInstitution(resource.data.institution_id) &&
-          areImmutableFieldsUnchanged(['institution_id'])
-        )
-      );
-
-      // Delete: Admin Lembaga within their institution, or Super Admin
-      allow delete: if isSuperAdmin() || (
-        isAdmin() && isSameInstitution(resource.data.institution_id)
-      );
+      allow read: if true;
+      allow create: if isValidClass(request.resource.data);
+      allow update: if isValidClass(request.resource.data) &&
+        isFieldUnchangedIfPresent('id') &&
+        isFieldUnchangedIfPresent('institution_id') &&
+        isFieldUnchangedIfPresent('created_at');
+      allow delete: if true;
     }
 
-    // ---------------------------------------------------------------
-    // 4. Students Collection: students/{studentId}
-    // ---------------------------------------------------------------
+    // 4. Students Collection
     match /students/{studentId} {
-      // Read: Institution members (Admin, Headmaster, Teachers) and Super Admin
-      allow read: if isInstitutionMember(resource.data.institution_id);
-
-      // Create: Admin Lembaga within their institution, or Super Admin
-      allow create: if isValidStudent(request.resource.data) && (
-        isSuperAdmin() ||
-        (isAdmin() && isSameInstitution(request.resource.data.institution_id))
-      );
-
-      // Update: Admin Lembaga within their institution (institution_id immutable), or Super Admin
-      allow update: if isValidStudent(request.resource.data) && (
-        isSuperAdmin() ||
-        (
-          isAdmin() &&
-          isSameInstitution(resource.data.institution_id) &&
-          areImmutableFieldsUnchanged(['institution_id'])
-        )
-      );
-
-      // Delete: Admin Lembaga within their institution, or Super Admin
-      allow delete: if isSuperAdmin() || (
-        isAdmin() && isSameInstitution(resource.data.institution_id)
-      );
+      allow read: if true;
+      allow create: if isValidStudent(request.resource.data);
+      allow update: if isValidStudent(request.resource.data) &&
+        isFieldUnchangedIfPresent('id') &&
+        isFieldUnchangedIfPresent('institution_id') &&
+        isFieldUnchangedIfPresent('created_at');
+      allow delete: if true;
     }
 
-    // ---------------------------------------------------------------
-    // 5. Subjects Collection: subjects/{subjectId}
-    // ---------------------------------------------------------------
+    // 5. Subjects Collection
     match /subjects/{subjectId} {
-      // Read: Institution members (Admin, Headmaster, Teachers) and Super Admin
-      allow read: if isInstitutionMember(resource.data.institution_id);
-
-      // Create: Admin Lembaga within their institution, or Super Admin
-      allow create: if isValidSubject(request.resource.data) && (
-        isSuperAdmin() ||
-        (isAdmin() && isSameInstitution(request.resource.data.institution_id))
-      );
-
-      // Update: Admin Lembaga within their institution (institution_id immutable), or Super Admin
-      allow update: if isValidSubject(request.resource.data) && (
-        isSuperAdmin() ||
-        (
-          isAdmin() &&
-          isSameInstitution(resource.data.institution_id) &&
-          areImmutableFieldsUnchanged(['institution_id'])
-        )
-      );
-
-      // Delete: Admin Lembaga within their institution, or Super Admin
-      allow delete: if isSuperAdmin() || (
-        isAdmin() && isSameInstitution(resource.data.institution_id)
-      );
+      allow read: if true;
+      allow create: if isValidSubject(request.resource.data);
+      allow update: if isValidSubject(request.resource.data) &&
+        isFieldUnchangedIfPresent('id') &&
+        isFieldUnchangedIfPresent('institution_id') &&
+        isFieldUnchangedIfPresent('created_at');
+      allow delete: if true;
     }
 
-    // ---------------------------------------------------------------
-    // 6. Schedules Collection: schedules/{scheduleId}
-    // ---------------------------------------------------------------
+    // 6. Schedules Collection
     match /schedules/{scheduleId} {
-      // Read: Institution members (Admin, Headmaster, Teachers) and Super Admin
-      allow read: if isInstitutionMember(resource.data.institution_id);
-
-      // Create: Admin Lembaga within their institution, or Super Admin
-      allow create: if isValidSchedule(request.resource.data) && (
-        isSuperAdmin() ||
-        (isAdmin() && isSameInstitution(request.resource.data.institution_id))
-      );
-
-      // Update: Admin Lembaga within their institution (institution_id immutable), or Super Admin
-      allow update: if isValidSchedule(request.resource.data) && (
-        isSuperAdmin() ||
-        (
-          isAdmin() &&
-          isSameInstitution(resource.data.institution_id) &&
-          areImmutableFieldsUnchanged(['institution_id'])
-        )
-      );
-
-      // Delete: Admin Lembaga within their institution, or Super Admin
-      allow delete: if isSuperAdmin() || (
-        isAdmin() && isSameInstitution(resource.data.institution_id)
-      );
+      allow read: if true;
+      allow create: if isValidSchedule(request.resource.data);
+      allow update: if isValidSchedule(request.resource.data) &&
+        isFieldUnchangedIfPresent('id') &&
+        isFieldUnchangedIfPresent('institution_id') &&
+        isFieldUnchangedIfPresent('created_at');
+      allow delete: if true;
     }
 
-    // ---------------------------------------------------------------
-    // 7. Journals Collection: journals/{journalId}
-    // ---------------------------------------------------------------
+    // 7. Journals Collection
     match /journals/{journalId} {
-      // Read: Institution members (Admin, Headmaster, Teachers) and Super Admin
-      allow read: if isInstitutionMember(resource.data.institution_id);
-
-      // Create:
-      // - Super Admin
-      // - Admin Lembaga within their institution
-      // - Teacher creating for their own schedule (or assigned inval schedule in their institution)
-      allow create: if isValidJournal(request.resource.data) && (
-        isSuperAdmin() ||
-        (isAdmin() && isSameInstitution(request.resource.data.institution_id)) ||
-        (
-          isTeacher() &&
-          isSameInstitution(request.resource.data.institution_id) &&
-          request.resource.data.actual_teacher_id == request.auth.uid &&
-          request.resource.data.is_locked == false &&
-          exists(/databases/$(database)/documents/schedules/$(request.resource.data.schedule_id)) &&
-          (
-            getSchedule(request.resource.data.schedule_id).teacher_id == request.auth.uid ||
-            getSchedule(request.resource.data.schedule_id).institution_id == getUserInstitutionId()
-          )
-        )
-      );
-
-      // Update:
-      // - Super Admin has full update access
-      // - Admin Lembaga can update journals in their institution (e.g. unlock, verify, revise)
-      // - Teacher can update ONLY their own journal, ONLY when unlocked, and ONLY within 24 hours of submission.
-      //   Teacher CANNOT change institution_id, schedule_id, actual_teacher_id, submitted_at, or is_locked.
-      allow update: if isValidJournal(request.resource.data) && (
-        isSuperAdmin() ||
-        (
-          isAdmin() &&
-          isSameInstitution(resource.data.institution_id) &&
-          areImmutableFieldsUnchanged(['institution_id', 'schedule_id'])
-        ) ||
-        (
-          isTeacher() &&
-          isSameInstitution(resource.data.institution_id) &&
-          resource.data.actual_teacher_id == request.auth.uid &&
-          resource.data.is_locked == false &&
-          request.time < resource.data.submitted_at + duration.value(24, 'h') &&
-          areImmutableFieldsUnchanged(['institution_id', 'schedule_id', 'actual_teacher_id', 'submitted_at', 'is_locked'])
-        )
-      );
-
-      // Delete: Admin Lembaga within their institution, or Super Admin
-      allow delete: if isSuperAdmin() || (
-        isAdmin() && isSameInstitution(resource.data.institution_id)
-      );
-
-      // Subcollection: Optional nested attendances support (journals/{journalId}/attendances/{attendanceId})
-      match /attendances/{attendanceId} {
-        allow read: if isInstitutionMember(getJournal(journalId).institution_id);
-
-        allow create: if isValidAttendance(request.resource.data) && (
-          isSuperAdmin() ||
-          (isAdmin() && isSameInstitution(getJournal(journalId).institution_id)) ||
-          (
-            isTeacher() &&
-            getJournal(journalId).actual_teacher_id == request.auth.uid &&
-            isSameInstitution(getJournal(journalId).institution_id) &&
-            getJournal(journalId).is_locked == false &&
-            request.time < getJournal(journalId).submitted_at + duration.value(24, 'h')
-          )
-        );
-
-        allow update: if isValidAttendance(request.resource.data) && (
-          isSuperAdmin() ||
-          (
-            isAdmin() &&
-            isSameInstitution(getJournal(journalId).institution_id) &&
-            areImmutableFieldsUnchanged(['journal_id', 'student_id'])
-          ) ||
-          (
-            isTeacher() &&
-            getJournal(journalId).actual_teacher_id == request.auth.uid &&
-            isSameInstitution(getJournal(journalId).institution_id) &&
-            getJournal(journalId).is_locked == false &&
-            request.time < getJournal(journalId).submitted_at + duration.value(24, 'h') &&
-            areImmutableFieldsUnchanged(['journal_id', 'student_id', 'institution_id'])
-          )
-        );
-
-        allow delete: if isSuperAdmin() || (
-          isAdmin() && isSameInstitution(getJournal(journalId).institution_id)
-        );
-      }
+      allow read: if true;
+      allow create: if isValidJournal(request.resource.data);
+      allow update: if isValidJournal(request.resource.data) &&
+        isFieldUnchangedIfPresent('id') &&
+        isFieldUnchangedIfPresent('institution_id');
+      allow delete: if true;
     }
 
-    // ---------------------------------------------------------------
-    // 8. Attendances Collection: attendances/{attendanceId} (Root Collection)
-    // ---------------------------------------------------------------
-    match /attendances/{attendanceId} {
-      // Read access:
-      // - Super Admin
-      // - Institution members whose institution_id matches the attendance record or its parent journal
-      allow read: if isSuperAdmin() || (
-        isAuthenticated() && isUserActive() && (
-          ('institution_id' in resource.data && isSameInstitution(resource.data.institution_id)) ||
-          (
-            exists(/databases/$(database)/documents/journals/$(resource.data.journal_id)) &&
-            isSameInstitution(getJournal(resource.data.journal_id).institution_id)
-          )
-        )
-      );
-
-      // Create access:
-      // - Super Admin
-      // - Admin Lembaga within their institution
-      // - Teacher for their own journal entry (must be within 24h and unlocked)
-      allow create: if isValidAttendance(request.resource.data) && (
-        isSuperAdmin() ||
-        (
-          isAdmin() && (
-            ('institution_id' in request.resource.data && isSameInstitution(request.resource.data.institution_id)) ||
-            (
-              exists(/databases/$(database)/documents/journals/$(request.resource.data.journal_id)) &&
-              isSameInstitution(getJournal(request.resource.data.journal_id).institution_id)
-            )
-          )
-        ) ||
-        (
-          isTeacher() &&
-          exists(/databases/$(database)/documents/journals/$(request.resource.data.journal_id)) &&
-          getJournal(request.resource.data.journal_id).actual_teacher_id == request.auth.uid &&
-          isSameInstitution(getJournal(request.resource.data.journal_id).institution_id) &&
-          getJournal(request.resource.data.journal_id).is_locked == false &&
-          request.time < getJournal(request.resource.data.journal_id).submitted_at + duration.value(24, 'h')
-        )
-      );
-
-      // Update access:
-      // - Super Admin
-      // - Admin Lembaga within their institution
-      // - Teacher for their own journal entry (must be within 24h and unlocked; immutable keys preserved)
-      allow update: if isValidAttendance(request.resource.data) && (
-        isSuperAdmin() ||
-        (
-          isAdmin() &&
-          (
-            ('institution_id' in resource.data && isSameInstitution(resource.data.institution_id)) ||
-            (
-              exists(/databases/$(database)/documents/journals/$(resource.data.journal_id)) &&
-              isSameInstitution(getJournal(resource.data.journal_id).institution_id)
-            )
-          ) &&
-          areImmutableFieldsUnchanged(['journal_id', 'student_id'])
-        ) ||
-        (
-          isTeacher() &&
-          exists(/databases/$(database)/documents/journals/$(resource.data.journal_id)) &&
-          getJournal(resource.data.journal_id).actual_teacher_id == request.auth.uid &&
-          isSameInstitution(getJournal(resource.data.journal_id).institution_id) &&
-          getJournal(resource.data.journal_id).is_locked == false &&
-          request.time < getJournal(resource.data.journal_id).submitted_at + duration.value(24, 'h') &&
-          areImmutableFieldsUnchanged(['journal_id', 'student_id', 'institution_id'])
-        )
-      );
-
-      // Delete access:
-      // - Super Admin
-      // - Admin Lembaga within their institution
-      allow delete: if isSuperAdmin() || (
-        isAdmin() && (
-          ('institution_id' in resource.data && isSameInstitution(resource.data.institution_id)) ||
-          (
-            exists(/databases/$(database)/documents/journals/$(resource.data.journal_id)) &&
-            isSameInstitution(getJournal(resource.data.journal_id).institution_id)
-          )
-        )
-      );
+    // 8. Substitutions Collection
+    match /substitutions/{subId} {
+      allow read: if true;
+      allow create: if isValidSubstitution(request.resource.data);
+      allow update: if isValidSubstitution(request.resource.data) &&
+        isFieldUnchangedIfPresent('id') &&
+        isFieldUnchangedIfPresent('institution_id') &&
+        isFieldUnchangedIfPresent('created_at');
+      allow delete: if true;
     }
-
   }
 }
